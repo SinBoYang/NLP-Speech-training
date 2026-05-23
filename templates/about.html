@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>關於 - Speech Training</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Speech Training</h1>
+            <ul class="nav-links">
+                <li><a href="/">首頁</a></li>
+                <li><a href="/about">關於</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="content">
+            <h2>關於本項目</h2>
+            <p>這是一個根據現代 Flask 最佳實踐構建的應用程序。</p>
+            <h3>項目結構</h3>
+            <ul>
+                <li>app/ - 應用程序主要代碼</li>
+                <li>templates/ - HTML 模板</li>
+                <li>static/ - 靜態文件（CSS、JavaScript）</li>
+                <li>config.py - 配置管理</li>
+                <li>run.py - 應用程序入口</li>
+            </ul>
+        </section>
+    </main>
+</body>
+</html>

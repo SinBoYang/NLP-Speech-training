@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Training - 首頁</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Speech Training</h1>
+            <ul class="nav-links">
+                <li><a href="/">首頁</a></li>
+                <li><a href="/about">關於</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>歡迎來到 Speech Training</h2>
+            <p>一個簡單而強大的 Flask 應用程序</p>
+            <button onclick="callAPI()" class="btn">點擊測試 API</button>
+            <p id="result"></p>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
