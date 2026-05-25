@@ -1,35 +1,103 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>關於 - Speech Training</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">Speech Training</h1>
-            <ul class="nav-links">
-                <li><a href="/">首頁</a></li>
-                <li><a href="/about">關於</a></li>
-            </ul>
-        </div>
-    </nav>
+{% extends 'base.html' %}
+{% block title %}關於 — SpeakElite{% endblock %}
 
-    <main class="container">
-        <section class="content">
-            <h2>關於本項目</h2>
-            <p>這是一個根據現代 Flask 最佳實踐構建的應用程序。</p>
-            <h3>項目結構</h3>
-            <ul>
-                <li>app/ - 應用程序主要代碼</li>
-                <li>templates/ - HTML 模板</li>
-                <li>static/ - 靜態文件（CSS、JavaScript）</li>
-                <li>config.py - 配置管理</li>
-                <li>run.py - 應用程序入口</li>
-            </ul>
-        </section>
-    </main>
-</body>
-</html>
+{% block content %}
+<div class="hero">
+  <div class="hero-badge">ℹ️ 關於本平台</div>
+  <h1>打造<span class="grad"> 下一代</span>演說訓練體驗</h1>
+  <p>結合語音辨識、NLP 情緒分析與大型語言模型，提供個人化的演說改善建議</p>
+</div>
+
+<div class="app-container">
+  <div class="card panel-card" style="max-width:720px;margin:0 auto;">
+    <h2 class="section-title">🛠️ 技術架構</h2>
+    <p class="section-sub">SpeakElite 由以下核心技術組成</p>
+
+    <div class="about-grid">
+      <div class="about-item">
+        <span class="about-icon">🎙️</span>
+        <div>
+          <strong>語音轉文字（STT）</strong>
+          <p>瀏覽器原生 Web Speech API，支援即時串流轉錄；後端可接 Whisper / Google STT。</p>
+        </div>
+      </div>
+      <div class="about-item">
+        <span class="about-icon">🌐</span>
+        <div>
+          <strong>翻譯服務</strong>
+          <p>多語言翻譯，讓非英語演說同樣能獲得完整的 AI 分析。</p>
+        </div>
+      </div>
+      <div class="about-item">
+        <span class="about-icon">🎭</span>
+        <div>
+          <strong>情緒分析</strong>
+          <p>分析演說的情緒強度、正負向情感，找出情緒弱點與爆發點。</p>
+        </div>
+      </div>
+      <div class="about-item">
+        <span class="about-icon">✨</span>
+        <div>
+          <strong>LLM 改善建議</strong>
+          <p>大型語言模型根據選定的演說家風格，重寫逐字稿並生成具體改善建議。</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:32px;">
+      <h3 class="section-title" style="font-size:1.1rem;">📁 專案結構</h3>
+      <pre class="code-block">NLP-Speech-training/
+├── app/
+│   └── routes/
+│       ├── main.py       # 頁面路由
+│       └── api.py        # API 端點
+├── templates/
+│   ├── base.html         # 基礎版型
+│   ├── index.html        # 訓練主頁
+│   └── about.html        # 本頁
+├── static/
+│   ├── css/              # 樣式表
+│   └── js/               # 前端邏輯
+├── config.py
+└── run.py</pre>
+    </div>
+
+    <div class="panel-footer">
+      <div></div>
+      <a href="/" class="btn-primary" style="text-decoration:none;">開始訓練 →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.about-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.about-item {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  background: var(--bg-2);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+.about-icon { font-size: 1.6rem; flex-shrink: 0; }
+.about-item strong { display: block; margin-bottom: 4px; font-size: .95rem; }
+.about-item p { font-size: .85rem; color: var(--text-2); line-height: 1.65; }
+.code-block {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 20px;
+  font-family: 'Courier New', monospace;
+  font-size: .8rem;
+  color: var(--text-2);
+  line-height: 1.7;
+  overflow-x: auto;
+}
+</style>
+{% endblock %}

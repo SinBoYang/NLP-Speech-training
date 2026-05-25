@@ -1,31 +1,295 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech Training - 首頁</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">Speech Training</h1>
-            <ul class="nav-links">
-                <li><a href="/">首頁</a></li>
-                <li><a href="/about">關於</a></li>
-            </ul>
+{% extends 'base.html' %}
+{% block title %}訓練 — SpeakElite{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">✨ AI 驅動的演說訓練平台</div>
+  <h1>成為<span class="grad"> 頂尖演說家</span><br>從每一次練習開始</h1>
+  <p>錄製你的演說，選擇影響力演說家風格，獲得 AI 改善建議與重寫逐字稿</p>
+</div>
+
+<!-- App Container -->
+<div class="app-container">
+
+  <!-- Step Indicator -->
+  <div class="step-indicator">
+    <div class="step active" data-step="1">
+      <div class="step-num">1</div>
+      <div class="step-label">錄音</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" data-step="2">
+      <div class="step-num">2</div>
+      <div class="step-label">選擇風格</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" data-step="3">
+      <div class="step-num">3</div>
+      <div class="step-label">分析結果</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" data-step="4">
+      <div class="step-num">4</div>
+      <div class="step-label">進度追蹤</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       STEP 1 — Recording
+       ═══════════════════════════════════════ -->
+  <div id="step-1" class="step-panel">
+    <div class="card panel-card">
+      <div class="panel-header">
+        <h2 class="section-title">🎙️ 開始錄音</h2>
+        <p class="section-sub">點擊麥克風按鈕開始錄音，語音將即時轉為文字；或直接貼上你的演說文字。</p>
+      </div>
+
+      <!-- Mic + Waveform -->
+      <div class="record-center">
+        <button id="mic-btn" class="mic-button" title="開始錄音">
+          <span class="mic-icon">🎤</span>
+        </button>
+        <div id="record-status" class="record-status">點擊開始錄音</div>
+        <div class="waveform" id="waveform"></div>
+      </div>
+
+      <!-- Live transcript -->
+      <div class="transcript-section">
+        <div class="transcript-header">
+          <span>📝 即時逐字稿</span>
+          <button id="clear-btn" class="btn-ghost btn-sm">清除</button>
         </div>
-    </nav>
+        <textarea
+          id="transcript"
+          class="transcript-area"
+          placeholder="開始錄音後，文字將自動出現在這裡...
 
-    <main class="container">
-        <section class="hero">
-            <h2>歡迎來到 Speech Training</h2>
-            <p>一個簡單而強大的 Flask 應用程序</p>
-            <button onclick="callAPI()" class="btn">點擊測試 API</button>
-            <p id="result"></p>
-        </section>
-    </main>
+或者你也可以直接貼上你的演說文字。"
+          rows="8"
+        ></textarea>
+        <div class="char-count"><span id="char-count">0</span> 字</div>
+      </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
-</html>
+      <!-- File Upload -->
+      <label class="upload-label" for="audio-upload">
+        <span class="upload-icon">📂</span>
+        <span>上傳音訊檔案</span>
+        <span class="upload-hint">MP3 · WAV · M4A · OGG</span>
+      </label>
+      <input type="file" id="audio-upload" accept="audio/*" class="hidden">
+
+      <!-- Actions -->
+      <div class="panel-footer">
+        <div class="browser-note" id="browser-note"></div>
+        <button id="step1-next" class="btn-primary" disabled>選擇風格 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       STEP 2 — Speaker Style
+       ═══════════════════════════════════════ -->
+  <div id="step-2" class="step-panel hidden">
+    <div class="card panel-card">
+      <div class="panel-header">
+        <h2 class="section-title">🎭 選擇你的演說導師</h2>
+        <p class="section-sub">AI 將以你選擇的演說家風格重寫你的逐字稿，並提供針對性改善建議。</p>
+      </div>
+
+      <div class="speaker-grid">
+
+        <div class="speaker-card" data-speaker="trump">
+          <div class="speaker-avatar" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">🦅</div>
+          <div class="speaker-info">
+            <h3>唐納·川普</h3>
+            <p class="speaker-en">Donald Trump</p>
+            <p class="speaker-desc">直白有力、重複強調、簡潔口語，善用情緒激發聽眾強烈共鳴</p>
+            <div class="speaker-tags">
+              <span class="tag">直接</span><span class="tag">重複</span><span class="tag">口語</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="speaker-card" data-speaker="mlk">
+          <div class="speaker-avatar" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">✊</div>
+          <div class="speaker-info">
+            <h3>馬丁路德·金恩</h3>
+            <p class="speaker-en">Martin Luther King Jr.</p>
+            <p class="speaker-desc">充滿詩意與節奏感，善用排比、比喻，情感深邃，震撼人心</p>
+            <div class="speaker-tags">
+              <span class="tag">排比</span><span class="tag">詩意</span><span class="tag">感召</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="speaker-card" data-speaker="xu">
+          <div class="speaker-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706)">🔥</div>
+          <div class="speaker-info">
+            <h3>許智誠</h3>
+            <p class="speaker-en">Xu Zhicheng</p>
+            <p class="speaker-desc">熱情奔放、激勵人心，善用故事與實例帶動聽眾情緒高峰</p>
+            <div class="speaker-tags">
+              <span class="tag">激勵</span><span class="tag">故事</span><span class="tag">熱情</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel-footer">
+        <button id="step2-back" class="btn-ghost">← 上一步</button>
+        <button id="step2-next" class="btn-primary" disabled>開始分析 ✨</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       STEP 3 — Results
+       ═══════════════════════════════════════ -->
+  <div id="step-3" class="step-panel hidden">
+
+    <!-- Loading -->
+    <div id="loading-state" class="card loading-card">
+      <div class="loading-orb"></div>
+      <div class="loading-spinner"></div>
+      <p class="loading-title">AI 正在分析你的演說…</p>
+      <div class="loading-steps">
+        <div class="ls-item active" id="ls-translate">🌐 翻譯與語言分析</div>
+        <div class="ls-item" id="ls-sentiment">🎭 情緒強度分析</div>
+        <div class="ls-item" id="ls-llm">✨ LLM 生成改善建議</div>
+        <div class="ls-item" id="ls-score">📊 計算綜合評分</div>
+      </div>
+    </div>
+
+    <!-- Results (hidden until ready) -->
+    <div id="results-content" class="hidden">
+
+      <!-- Score Hero -->
+      <div class="score-hero card">
+        <div class="score-circle">
+          <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="score-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#7c6cf0"/>
+                <stop offset="50%" stop-color="#a855f7"/>
+                <stop offset="100%" stop-color="#ec4899"/>
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r="50" class="score-bg"/>
+            <circle cx="60" cy="60" r="50" class="score-fill" id="score-ring"/>
+          </svg>
+          <div class="score-overlay">
+            <span class="score-value" id="overall-score">--</span>
+            <span class="score-unit">分</span>
+          </div>
+        </div>
+        <div class="score-meta">
+          <div class="score-grade" id="score-grade">優良</div>
+          <p class="score-summary" id="score-summary-text">正在生成評語…</p>
+          <div class="score-speaker-tag" id="score-speaker-tag"></div>
+        </div>
+      </div>
+
+      <!-- Transcript Comparison -->
+      <div class="transcripts-grid">
+        <div class="transcript-card card">
+          <div class="tc-header">
+            <span class="tc-badge original">原始</span>
+            <span>你的逐字稿</span>
+          </div>
+          <div class="tc-body" id="original-transcript"></div>
+        </div>
+        <div class="transcript-card card">
+          <div class="tc-header">
+            <span class="tc-badge improved">改善</span>
+            <span id="speaker-style-label">AI 改善版</span>
+          </div>
+          <div class="tc-body" id="improved-transcript"></div>
+          <button class="copy-btn btn-ghost btn-sm" id="copy-improved">📋 複製改善版</button>
+        </div>
+      </div>
+
+      <!-- Suggestions -->
+      <div class="results-section">
+        <h3 class="section-title">💡 改善建議</h3>
+        <p class="section-sub">根據你的演說內容與選擇的風格，AI 提出以下針對性建議</p>
+        <div class="suggestions-grid" id="suggestions-grid"></div>
+      </div>
+
+      <!-- Detailed Scores -->
+      <div class="results-section card scores-card">
+        <h3 class="section-title">📊 詳細評分</h3>
+        <div class="score-bars" id="score-bars"></div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="panel-footer">
+        <button id="step3-back" class="btn-ghost">← 再試一次</button>
+        <button id="step3-next" class="btn-primary">查看進度 →</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       STEP 4 — Progress
+       ═══════════════════════════════════════ -->
+  <div id="step-4" class="step-panel hidden">
+    <div class="card panel-card">
+      <div class="panel-header">
+        <h2 class="section-title">📈 我的訓練進度</h2>
+        <p class="section-sub">追蹤你的演說能力成長，持續挑戰自我上限</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🎙️</div>
+          <div class="stat-value" id="total-sessions">0</div>
+          <div class="stat-label">訓練次數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-value" id="avg-score">--</div>
+          <div class="stat-label">平均分數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-value" id="best-score">--</div>
+          <div class="stat-label">最高分數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-value" id="streak-days">0</div>
+          <div class="stat-label">連續天數</div>
+        </div>
+      </div>
+
+      <!-- Sessions -->
+      <div class="sessions-section">
+        <h3 class="sessions-title">最近訓練記錄</h3>
+        <div id="sessions-list" class="sessions-list">
+          <div class="empty-state">
+            <div class="empty-icon">🎯</div>
+            <p>完成第一次訓練後，記錄將會出現在這裡</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        <div></div>
+        <button id="step4-restart" class="btn-primary">🎤 開始新訓練</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end app-container -->
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/speech.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}
