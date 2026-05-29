@@ -6,10 +6,13 @@
 // ─── Application state ───────────────────────────────────────
 
 const state = {
-  transcript:     '',
-  selectedSpeaker: null,
-  analysisResult: null,
-  isRecording:    false,
+  transcript:          '',
+  selectedSpeaker:     null,
+  analysisResult:      null,
+  isRecording:         false,
+  improvedTranscriptZh: '',
+  improvedTranscriptEn: null,
+  currentDraftLang:    'zh',
 };
 
 // ─── Speech recognizer ────────────────────────────────────────
@@ -110,25 +113,47 @@ function wireEvents() {
   // Step 2: Analyze
   document.getElementById('step2-next').addEventListener('click', startAnalysis);
 
-  // Step 3: Copy improved transcript
-  document.getElementById('copy-improved').addEventListener('click', () => {
-    const text = document.getElementById('improved-transcript').textContent;
+  // Step 3: Restart
+  document.getElementById('step3-back').addEventListener('click', resetApp);
+
+  // Step 3 → Step 4: show improved draft
+  document.getElementById('step3-next').addEventListener('click', () => {
+    TTS.stop();
+    showImprovedDraft();
+    UI.showStep(4);
+  });
+
+  // Step 4: Back to results
+  document.getElementById('step4-back').addEventListener('click', () => {
+    TTS.stop();
+    UI.showStep(3);
+  });
+
+  // Step 4: New session
+  document.getElementById('step4-restart').addEventListener('click', () => {
+    TTS.stop();
+    resetApp();
+  });
+
+  // Language toggle
+  document.getElementById('lang-zh').addEventListener('click', () => switchDraftLang('zh'));
+  document.getElementById('lang-en').addEventListener('click', () => switchDraftLang('en'));
+
+  // TTS toggle
+  document.getElementById('tts-toggle').addEventListener('click', () => {
+    if (TTS.synth.speaking) { TTS.stop(); } else { TTS.speak(getDraftText(), getDraftLang()); }
+  });
+
+  // Translate to English
+  document.getElementById('draft-translate').addEventListener('click', handleTranslate);
+
+  // Copy draft text
+  document.getElementById('draft-copy').addEventListener('click', () => {
+    const text = getDraftText();
     navigator.clipboard?.writeText(text)
       .then(() => UI.showToast('已複製到剪貼板 ✓', 'success'))
       .catch(() => UI.showToast('複製失敗，請手動選取', 'error'));
   });
-
-  // Step 3: Restart
-  document.getElementById('step3-back').addEventListener('click', resetApp);
-
-  // Step 3: View progress
-  document.getElementById('step3-next').addEventListener('click', () => {
-    loadAndShowProgress();
-    UI.showStep(4);
-  });
-
-  // Step 4: New session
-  document.getElementById('step4-restart').addEventListener('click', resetApp);
 }
 
 // ─── Recording ───────────────────────────────────────────────
@@ -167,21 +192,8 @@ function handleAudioUpload(e) {
 // ─── Analysis ────────────────────────────────────────────────
 
 async function startAnalysis() {
-  const speakerLabels = {
-    trump: '川普風格',
-    mlk:   '金恩博士風格',
-    xu:    '許智誠風格',
-  };
-
-  const labelEl = document.getElementById('speaker-style-label');
-  if (labelEl) labelEl.textContent = speakerLabels[state.selectedSpeaker] || 'AI 改善版';
-
-  const speakerTagEl = document.getElementById('score-speaker-tag');
-  if (speakerTagEl) speakerTagEl.textContent = `📌 ${speakerLabels[state.selectedSpeaker] || ''}`;
-
   UI.showStep(3);
 
-  // Reset results area
   document.getElementById('loading-state').classList.remove('hidden');
   document.getElementById('results-content').classList.add('hidden');
 
@@ -192,7 +204,6 @@ async function startAnalysis() {
     try {
       result = await API.analyze(state.transcript, state.selectedSpeaker);
     } catch (_) {
-      // Backend not ready — use demo data with simulated delay
       await delay(3200);
       result = API.demoAnalysis(state.transcript, state.selectedSpeaker);
     }
@@ -201,15 +212,6 @@ async function startAnalysis() {
     state.analysisResult = result;
     UI.renderResults(result, state.transcript);
 
-    // Save session (best-effort)
-    API.saveSession({
-      transcript:      state.transcript,
-      speaker:         state.selectedSpeaker,
-      scores:          result.scores,
-      overall:         result.overall,
-      timestamp:       new Date().toISOString(),
-    }).catch(() => {/* no-op */});
-
   } catch (err) {
     clearInterval(loadingInterval);
     UI.showToast('分析失敗，請稍後再試', 'error');
@@ -217,21 +219,163 @@ async function startAnalysis() {
   }
 }
 
-// ─── Progress ────────────────────────────────────────────────
+// ─── Improved Draft (Step 4) ────────────────────────────────
 
-async function loadAndShowProgress() {
-  try {
-    const data = await API.getProgress();
-    // Merge in current session if backend returned empty
-    if (data.total_sessions === 0 && state.analysisResult) {
-      UI.renderProgress(API.demoProgress(state.analysisResult, state.selectedSpeaker));
+const speakerLabels = {
+  trump: '川普風格',
+  mlk:   '金恩博士風格',
+  xu:    '許智誠風格',
+};
+
+function showImprovedDraft() {
+  const text = state.analysisResult?.improved_transcript || '';
+  state.improvedTranscriptZh = text;
+  state.improvedTranscriptEn = null;
+  state.currentDraftLang = 'zh';
+  UI.renderImprovedDraft(text, speakerLabels[state.selectedSpeaker] || '');
+}
+
+function getDraftText() {
+  return state.currentDraftLang === 'en' && state.improvedTranscriptEn
+    ? state.improvedTranscriptEn
+    : state.improvedTranscriptZh;
+}
+
+function getDraftLang() {
+  return state.currentDraftLang === 'en' ? 'en-US' : 'zh-TW';
+}
+
+function switchDraftLang(lang) {
+  if (lang === state.currentDraftLang) return;
+  TTS.stop();
+
+  document.getElementById('lang-zh').classList.toggle('active', lang === 'zh');
+  document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+  state.currentDraftLang = lang;
+
+  const content = document.getElementById('draft-content');
+  if (!content) return;
+
+  if (lang === 'zh') {
+    content.textContent = state.improvedTranscriptZh;
+    document.getElementById('draft-translate').textContent = '🌐 翻譯英文';
+  } else {
+    if (state.improvedTranscriptEn) {
+      content.textContent = state.improvedTranscriptEn;
+      document.getElementById('draft-translate').textContent = '🌐 顯示中文';
     } else {
-      UI.renderProgress(data);
+      // Trigger translation if English not yet fetched
+      handleTranslate();
     }
-  } catch (_) {
-    UI.renderProgress(API.demoProgress(state.analysisResult, state.selectedSpeaker));
   }
 }
+
+async function handleTranslate() {
+  if (state.currentDraftLang === 'zh') {
+    // Switch to English tab then translate
+    switchDraftLang('en');
+    return;
+  }
+
+  if (state.improvedTranscriptEn) {
+    // Already translated — just switch display
+    document.getElementById('draft-content').textContent = state.improvedTranscriptEn;
+    document.getElementById('draft-translate').textContent = '🌐 顯示中文';
+    return;
+  }
+
+  const loadingEl = document.getElementById('translate-loading');
+  const errorEl   = document.getElementById('translate-error');
+  const content   = document.getElementById('draft-content');
+  const btn       = document.getElementById('draft-translate');
+
+  loadingEl.classList.remove('hidden');
+  errorEl.classList.add('hidden');
+  btn.disabled = true;
+
+  try {
+    const translated = await translateToEnglish(state.improvedTranscriptZh);
+    state.improvedTranscriptEn = translated;
+    content.textContent = translated;
+    btn.textContent = '🌐 顯示中文';
+    loadingEl.classList.add('hidden');
+  } catch (_) {
+    loadingEl.classList.add('hidden');
+    errorEl.classList.remove('hidden');
+    // Revert lang toggle back to zh
+    state.currentDraftLang = 'zh';
+    document.getElementById('lang-zh').classList.add('active');
+    document.getElementById('lang-en').classList.remove('active');
+    content.textContent = state.improvedTranscriptZh;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function translateToEnglish(text) {
+  if (!text) return '';
+
+  // Split into ≤400-char chunks at natural sentence boundaries
+  const CHUNK = 400;
+  const chunks = [];
+  const sentences = text.split(/(?<=[。！？\n])/);
+  let buf = '';
+
+  for (const s of sentences) {
+    if ((buf + s).length > CHUNK) {
+      if (buf) chunks.push(buf.trim());
+      buf = s;
+    } else {
+      buf += s;
+    }
+  }
+  if (buf.trim()) chunks.push(buf.trim());
+
+  const parts = [];
+  for (const chunk of chunks) {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=zh-TW|en`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.responseStatus !== 200) throw new Error('Translation API error');
+    parts.push(data.responseData.translatedText);
+  }
+
+  return parts.join(' ');
+}
+
+// ─── TTS Controller ──────────────────────────────────────────
+
+const TTS = {
+  synth: window.speechSynthesis,
+
+  speak(text, lang = 'zh-TW') {
+    this.stop();
+    if (!text) { UI.showToast('沒有文字可以朗讀', 'error'); return; }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang  = lang;
+    utter.onstart = () => setTTSToggle(true);
+    utter.onend   = () => setTTSToggle(false);
+    utter.onerror = () => setTTSToggle(false);
+    this.synth.speak(utter);
+  },
+
+  stop() {
+    this.synth.cancel();
+    setTTSToggle(false);
+  },
+};
+
+function setTTSToggle(speaking) {
+  const btn       = document.getElementById('tts-toggle');
+  const indicator = document.getElementById('draft-tts-indicator');
+  if (btn) {
+    btn.textContent = speaking ? '⏹ 停止朗讀' : '▶ 朗讀';
+    btn.className   = speaking ? 'tts-btn tts-stop' : 'tts-btn tts-play';
+  }
+  indicator?.classList.toggle('hidden', !speaking);
+}
+
+function updateTTSButtons() { setTTSToggle(false); }
 
 // ─── Reset ───────────────────────────────────────────────────
 
@@ -241,9 +385,12 @@ function resetApp() {
     state.isRecording = false;
   }
 
-  state.transcript     = '';
-  state.selectedSpeaker = null;
-  state.analysisResult = null;
+  state.transcript          = '';
+  state.selectedSpeaker     = null;
+  state.analysisResult      = null;
+  state.improvedTranscriptZh = '';
+  state.improvedTranscriptEn = null;
+  state.currentDraftLang    = 'zh';
 
   document.getElementById('transcript').value = '';
   updateCharCount(0);
@@ -268,3 +415,33 @@ function updateCharCount(n) {
 }
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
+
+// ─── Word frequency (for word cloud) ────────────────────────
+
+function computeWordFreq(text, topN = 28) {
+  const stopWords = new Set([
+    '的','了','在','是','有','和','就','不','都','也','很','到','去','會','著',
+    '啊','嗯','啦','喔','呢','嗎','吧','呀','哦','哈','嘿','嘛',
+    '可','把','與','及','為','以','而','對','等','之','中','後','其',
+    '他','她','它','於','從','被','讓','使','得','這','那','個','些',
+    '上','下','來','過','再','又','已','將','能','要','想','做',
+  ]);
+
+  // Extract CJK characters only
+  const cjk = text.replace(/[^一-鿿]/g, '');
+  const freq = {};
+
+  // Count bigrams (2-char compounds)
+  for (let i = 0; i < cjk.length - 1; i++) {
+    const bigram = cjk[i] + cjk[i + 1];
+    if (!stopWords.has(cjk[i]) && !stopWords.has(cjk[i + 1])) {
+      freq[bigram] = (freq[bigram] || 0) + 1;
+    }
+  }
+
+  return Object.entries(freq)
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([word, count]) => ({ word, count }));
+}

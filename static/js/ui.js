@@ -134,62 +134,87 @@ const UI = {
     content.classList.remove('hidden');
     content.classList.add('animate-in');
 
-    // Original
-    document.getElementById('original-transcript').textContent = originalTranscript;
-
-    // Improved
-    document.getElementById('improved-transcript').textContent = data.improved_transcript;
-
-    // Overall score
-    const vals = Object.values(data.scores);
-    const overall = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-    data.overall = overall;
-
-    setTimeout(() => {
-      document.getElementById('overall-score').textContent = overall;
-      const ring = document.getElementById('score-ring');
-      if (ring) {
-        const circumference = 2 * Math.PI * 50; // r=50
-        ring.style.strokeDashoffset = circumference - (overall / 100) * circumference;
-      }
-    }, 350);
-
-    // Grade
-    const grade =
-      overall >= 88 ? '卓越' :
-      overall >= 75 ? '優良' :
-      overall >= 62 ? '進步中' : '需加強';
-    document.getElementById('score-grade').textContent = grade;
-    document.getElementById('score-summary-text').textContent = data.summary;
-
-    // Suggestions
-    const grid = document.getElementById('suggestions-grid');
-    grid.innerHTML = '';
-    grid.classList.add('stagger-children');
-    data.suggestions.forEach(s => grid.appendChild(this._makeSuggestionCard(s)));
-
-    // Score bars
-    const barsEl = document.getElementById('score-bars');
-    barsEl.innerHTML = '';
-    const labels = {
-      vocabulary: '詞彙豐富度',
-      pacing:     '節奏感',
-      emotion:    '情緒感染力',
-      structure:  '結構清晰度',
-      persuasion: '說服力',
+    // Coach banner
+    const speakerMeta = {
+      trump: { label: '川普風格', avatar: '🦅', title: '川普教練的分析報告' },
+      mlk:   { label: '金恩博士風格', avatar: '✊', title: '金恩博士教練的分析報告' },
+      xu:    { label: '許智誠風格', avatar: '🔥', title: '許智誠教練的分析報告' },
     };
-    Object.entries(data.scores).forEach(([k, v]) => {
-      barsEl.appendChild(this._makeScoreBar(labels[k] || k, v));
-    });
+    const meta = speakerMeta[data.speaker] || { label: 'AI 風格', avatar: '🎓', title: 'AI 教練的分析報告' };
 
-    // Animate bars after paint
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document.querySelectorAll('.score-bar-fill').forEach(f => {
-          f.style.width = f.dataset.width + '%';
-        });
-      }, 500);
+    const avatarEl = document.getElementById('coach-avatar');
+    const titleEl  = document.getElementById('coach-title');
+    const summaryEl = document.getElementById('coach-summary');
+    const tagEl    = document.getElementById('coach-style-tag');
+    if (avatarEl)  avatarEl.textContent  = meta.avatar;
+    if (titleEl)   titleEl.textContent   = meta.title;
+    if (summaryEl) summaryEl.textContent = data.summary || '';
+    if (tagEl)     tagEl.textContent     = `📌 ${meta.label}`;
+
+    // Word cloud from original transcript
+    this._renderWordCloud(computeWordFreq(originalTranscript));
+
+    // Vocab suggestions
+    const vocabEl = document.getElementById('vocab-list');
+    if (vocabEl) {
+      vocabEl.innerHTML = '';
+      (data.vocab_suggestions || []).forEach(v => vocabEl.appendChild(this._makeVocabRow(v)));
+    }
+
+    // Style-based suggestions
+    const speakerNameEl = document.getElementById('suggestions-speaker-name');
+    const speakerDescEl = document.getElementById('suggestions-speaker-desc');
+    const descMap = {
+      trump: '以下是模仿川普演說風格的針對性指導',
+      mlk:   '以下是模仿金恩博士演說風格的針對性指導',
+      xu:    '以下是模仿許智誠演說風格的針對性指導',
+    };
+    if (speakerNameEl) speakerNameEl.textContent = { trump: '川普', mlk: '金恩博士', xu: '許智誠' }[data.speaker] || 'AI';
+    if (speakerDescEl) speakerDescEl.textContent = descMap[data.speaker] || '';
+
+    const grid = document.getElementById('suggestions-grid');
+    if (grid) {
+      grid.innerHTML = '';
+      grid.classList.add('stagger-children');
+      (data.suggestions || []).forEach(s => grid.appendChild(this._makeSuggestionCard(s)));
+    }
+  },
+
+  _renderWordCloud(words) {
+    const cloud = document.getElementById('word-cloud');
+    if (!cloud) return;
+    cloud.innerHTML = '';
+
+    if (!words.length) {
+      cloud.innerHTML = '<span class="wc-empty">文字太短，無法產生詞彙地圖</span>';
+      return;
+    }
+
+    const maxCount = words[0].count;
+    words.forEach(({ word, count }) => {
+      const ratio = count / maxCount;
+      const tier  = ratio > 0.8 ? 5 : ratio > 0.6 ? 4 : ratio > 0.4 ? 3 : ratio > 0.2 ? 2 : 1;
+      const span  = document.createElement('span');
+      span.className = `wc-word wc-${tier}`;
+      span.textContent = word;
+      span.title = `出現 ${count} 次`;
+      cloud.appendChild(span);
     });
+  },
+
+  _makeVocabRow(v) {
+    const row = document.createElement('div');
+    row.className = 'vocab-row';
+    const chips = (v.alternatives || [])
+      .map(a => `<span class="vocab-chip">${a}</span>`)
+      .join('');
+    row.innerHTML = `
+      <span class="vocab-original">${v.original}</span>
+      <span class="vocab-arrow">→</span>
+      <div class="vocab-chips">${chips}</div>
+      ${v.reason ? `<span class="vocab-reason">💬 ${v.reason}</span>` : ''}
+    `;
+    return row;
   },
 
   _makeSuggestionCard(s) {
@@ -203,50 +228,24 @@ const UI = {
     return card;
   },
 
-  _makeScoreBar(label, val) {
-    const item = document.createElement('div');
-    item.className = 'score-bar-item';
-    item.innerHTML = `
-      <div class="score-bar-label">${label}</div>
-      <div class="score-bar-track">
-        <div class="score-bar-fill" data-width="${val}" style="width:0%"></div>
-      </div>
-      <div class="score-bar-val">${val}</div>
-    `;
-    return item;
-  },
+  // ─── Improved Draft rendering (Step 4) ─────────────────────
 
-  // ─── Progress rendering ─────────────────────────────────────
-
-  renderProgress(data) {
-    if (!data) return;
-
-    const set = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = val ?? '--';
-    };
-
-    set('total-sessions', data.total_sessions);
-    set('avg-score',      data.avg_score);
-    set('best-score',     data.best_score);
-    set('streak-days',    data.streak_days);
-
-    const list = document.getElementById('sessions-list');
-    if (!list) return;
-
-    if (data.sessions && data.sessions.length > 0) {
-      list.innerHTML = '';
-      data.sessions.forEach(s => {
-        const item = document.createElement('div');
-        item.className = 'session-item animate-in';
-        item.innerHTML = `
-          <span class="session-date">${s.date}</span>
-          <span class="session-speaker">${s.speaker}</span>
-          <span class="score-badge">${s.score} 分</span>
-        `;
-        list.appendChild(item);
-      });
+  renderImprovedDraft(text, speakerLabel) {
+    const content = document.getElementById('draft-content');
+    if (content) {
+      content.textContent = text || '';
     }
+    const subtitle = document.getElementById('draft-style-subtitle');
+    if (subtitle && speakerLabel) {
+      subtitle.textContent = `以「${speakerLabel}」風格重新編寫`;
+    }
+    // Reset language toggle to Chinese
+    document.getElementById('lang-zh')?.classList.add('active');
+    document.getElementById('lang-en')?.classList.remove('active');
+    document.getElementById('translate-error')?.classList.add('hidden');
+    document.getElementById('translate-loading')?.classList.add('hidden');
+    // Reset TTS toggle to idle
+    updateTTSButtons();
   },
 
   // ─── Toast notifications ────────────────────────────────────

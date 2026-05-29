@@ -31,7 +31,7 @@
     <div class="step-line"></div>
     <div class="step" data-step="4">
       <div class="step-num">4</div>
-      <div class="step-label">進度追蹤</div>
+      <div class="step-label">改善演講稿</div>
     </div>
   </div>
 
@@ -155,130 +155,111 @@
       <div class="loading-spinner"></div>
       <p class="loading-title">AI 正在分析你的演說…</p>
       <div class="loading-steps">
-        <div class="ls-item active" id="ls-translate">🌐 翻譯與語言分析</div>
-        <div class="ls-item" id="ls-sentiment">🎭 情緒強度分析</div>
-        <div class="ls-item" id="ls-llm">✨ LLM 生成改善建議</div>
-        <div class="ls-item" id="ls-score">📊 計算綜合評分</div>
+        <div class="ls-item active" id="ls-translate">🔤 分析詞彙使用頻率</div>
+        <div class="ls-item" id="ls-sentiment">💡 生成詞彙升級建議</div>
+        <div class="ls-item" id="ls-llm">✨ LLM 依風格重寫演講稿</div>
+        <div class="ls-item" id="ls-score">🎯 整合改善方向</div>
       </div>
     </div>
 
     <!-- Results (hidden until ready) -->
     <div id="results-content" class="hidden">
 
-      <!-- Score Hero -->
-      <div class="score-hero card">
-        <div class="score-circle">
-          <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="score-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#7c6cf0"/>
-                <stop offset="50%" stop-color="#a855f7"/>
-                <stop offset="100%" stop-color="#ec4899"/>
-              </linearGradient>
-            </defs>
-            <circle cx="60" cy="60" r="50" class="score-bg"/>
-            <circle cx="60" cy="60" r="50" class="score-fill" id="score-ring"/>
-          </svg>
-          <div class="score-overlay">
-            <span class="score-value" id="overall-score">--</span>
-            <span class="score-unit">分</span>
-          </div>
+      <!-- Coach intro banner -->
+      <div class="coach-banner card">
+        <div class="coach-avatar" id="coach-avatar">🎓</div>
+        <div class="coach-intro">
+          <div class="coach-title" id="coach-title">教練分析完成</div>
+          <p class="coach-summary" id="coach-summary">正在生成評語…</p>
         </div>
-        <div class="score-meta">
-          <div class="score-grade" id="score-grade">優良</div>
-          <p class="score-summary" id="score-summary-text">正在生成評語…</p>
-          <div class="score-speaker-tag" id="score-speaker-tag"></div>
+        <div class="coach-style-tag" id="coach-style-tag"></div>
+      </div>
+
+      <!-- Word Cloud -->
+      <div class="results-section card">
+        <div class="results-section-header">
+          <h3 class="section-title">🔤 你的詞彙地圖</h3>
+          <p class="section-sub">出現越頻繁、字體越大——看看你最常說什麼</p>
+        </div>
+        <div class="word-cloud" id="word-cloud">
+          <span class="wc-empty">分析後將顯示詞彙地圖</span>
         </div>
       </div>
 
-      <!-- Transcript Comparison -->
-      <div class="transcripts-grid">
-        <div class="transcript-card card">
-          <div class="tc-header">
-            <span class="tc-badge original">原始</span>
-            <span>你的逐字稿</span>
-          </div>
-          <div class="tc-body" id="original-transcript"></div>
+      <!-- Vocabulary Upgrade -->
+      <div class="results-section card">
+        <div class="results-section-header">
+          <h3 class="section-title">✨ 詞彙升級建議</h3>
+          <p class="section-sub">教練挑選出可以替換的詞彙，讓你的演說更有感染力</p>
         </div>
-        <div class="transcript-card card">
-          <div class="tc-header">
-            <span class="tc-badge improved">改善</span>
-            <span id="speaker-style-label">AI 改善版</span>
-          </div>
-          <div class="tc-body" id="improved-transcript"></div>
-          <button class="copy-btn btn-ghost btn-sm" id="copy-improved">📋 複製改善版</button>
-        </div>
+        <div class="vocab-list" id="vocab-list"></div>
       </div>
 
-      <!-- Suggestions -->
-      <div class="results-section">
-        <h3 class="section-title">💡 改善建議</h3>
-        <p class="section-sub">根據你的演說內容與選擇的風格，AI 提出以下針對性建議</p>
+      <!-- Style-based coaching -->
+      <div class="results-section card">
+        <div class="results-section-header">
+          <h3 class="section-title">🎯 <span id="suggestions-speaker-name">AI</span> 風格指導方向</h3>
+          <p class="section-sub" id="suggestions-speaker-desc"></p>
+        </div>
         <div class="suggestions-grid" id="suggestions-grid"></div>
       </div>
 
-      <!-- Detailed Scores -->
-      <div class="results-section card scores-card">
-        <h3 class="section-title">📊 詳細評分</h3>
-        <div class="score-bars" id="score-bars"></div>
-      </div>
-
-      <!-- Footer Actions -->
+      <!-- Footer -->
       <div class="panel-footer">
         <button id="step3-back" class="btn-ghost">← 再試一次</button>
-        <button id="step3-next" class="btn-primary">查看進度 →</button>
+        <button id="step3-next" class="btn-primary">前往改善後演講稿 →</button>
       </div>
 
     </div>
   </div>
 
   <!-- ═══════════════════════════════════════
-       STEP 4 — Progress
+       STEP 4 — Improved Speech Draft
        ═══════════════════════════════════════ -->
   <div id="step-4" class="step-panel hidden">
     <div class="card panel-card">
-      <div class="panel-header">
-        <h2 class="section-title">📈 我的訓練進度</h2>
-        <p class="section-sub">追蹤你的演說能力成長，持續挑戰自我上限</p>
-      </div>
 
-      <!-- Stats -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">🎙️</div>
-          <div class="stat-value" id="total-sessions">0</div>
-          <div class="stat-label">訓練次數</div>
+      <!-- Header row: title + language toggle -->
+      <div class="draft-header">
+        <div>
+          <h2 class="section-title">📄 改善後的演講稿</h2>
+          <p class="section-sub" id="draft-style-subtitle">以 AI 風格重新編寫</p>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon">⭐</div>
-          <div class="stat-value" id="avg-score">--</div>
-          <div class="stat-label">平均分數</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🏆</div>
-          <div class="stat-value" id="best-score">--</div>
-          <div class="stat-label">最高分數</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🔥</div>
-          <div class="stat-value" id="streak-days">0</div>
-          <div class="stat-label">連續天數</div>
+        <div class="draft-lang-toggle">
+          <button id="lang-zh" class="lang-btn active">中文</button>
+          <button id="lang-en" class="lang-btn">English</button>
         </div>
       </div>
 
-      <!-- Sessions -->
-      <div class="sessions-section">
-        <h3 class="sessions-title">最近訓練記錄</h3>
-        <div id="sessions-list" class="sessions-list">
-          <div class="empty-state">
-            <div class="empty-icon">🎯</div>
-            <p>完成第一次訓練後，記錄將會出現在這裡</p>
-          </div>
+      <!-- Draft text display -->
+      <div class="draft-display-wrap">
+        <div id="draft-tts-indicator" class="tts-reading-indicator hidden">
+          <span class="tts-dot"></span>
+          <span id="tts-indicator-text">朗讀中…</span>
         </div>
+        <div id="draft-content" class="draft-content">
+          <span class="draft-placeholder">完成分析後，改善演講稿將顯示在這裡。</span>
+        </div>
+      </div>
+
+      <!-- Translate loading hint -->
+      <div id="translate-loading" class="translate-loading hidden">
+        <div class="mini-spinner"></div>
+        <span>翻譯中，請稍候…</span>
+      </div>
+      <div id="translate-error" class="translate-error hidden">
+        ⚠️ 翻譯失敗，請稍後再試
+      </div>
+
+      <!-- Action buttons -->
+      <div class="draft-actions">
+        <button id="tts-toggle"      class="tts-btn tts-play">▶ 朗讀</button>
+        <button id="draft-translate" class="btn-ghost btn-sm">🌐 翻譯英文</button>
+        <button id="draft-copy"      class="btn-ghost btn-sm">📋 複製</button>
       </div>
 
       <div class="panel-footer">
-        <div></div>
+        <button id="step4-back"    class="btn-ghost">← 回到分析</button>
         <button id="step4-restart" class="btn-primary">🎤 開始新訓練</button>
       </div>
     </div>
