@@ -158,6 +158,9 @@ function wireEvents() {
 
 // ─── Recording ───────────────────────────────────────────────
 
+/**
+ * Toggle microphone recording on/off
+ */
 function toggleRecording() {
   if (state.isRecording) {
     recognizer.stop();
@@ -170,23 +173,155 @@ function toggleRecording() {
   }
 }
 
-// ─── Audio upload (placeholder for backend STT) ───────────────
+// ─── Audio upload ────────────────────────────────────────────
 
-function handleAudioUpload(e) {
+/**
+ * Handle audio file upload - convert to WAV and transcribe
+ */
+async function handleAudioUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  UI.showToast(`上傳中：${file.name}`, 'info');
+  const transcriptArea = document.getElementById('transcript');
+  
+  UI.showToast(`正在處理音頻：${file.name}...`, 'info');
 
-  // Placeholder — real implementation calls a backend /api/transcribe endpoint
-  setTimeout(() => {
-    const placeholder = `（已上傳：${file.name}）\n\n（後端語音轉文字服務將在此提供轉錄結果）`;
-    document.getElementById('transcript').value = placeholder;
-    state.transcript = placeholder;
-    updateCharCount(placeholder.length);
+  try {
+    transcriptArea.value = '🔄 正在處理音頻檔案...';
+    transcriptArea.disabled = true;
+    
+    // Convert to WAV format
+    const wavFile = await convertAudioFileToWav(file);
+    
+    UI.showToast(`轉換完成，正在上傳...`, 'info');
+    
+    // Send to backend for transcription
+    transcriptArea.value = '🔄 正在轉錄語音...';
+    const result = await API.transcribe(wavFile);
+    
+    if (result.success) {
+      state.transcript = result.transcript;
+      transcriptArea.value = result.transcript;
+      updateCharCount(result.transcript.length);
+      updateStep1Next();
+      UI.showToast('✓ 語音轉錄完成', 'success');
+    } else {
+      transcriptArea.value = '';
+      state.transcript = '';
+      updateCharCount(0);
+      updateStep1Next();
+      UI.showToast(`❌ 轉錄失敗：${result.error}`, 'error');
+    }
+  } catch (err) {
+    transcriptArea.value = '';
+    state.transcript = '';
+    updateCharCount(0);
     updateStep1Next();
-    UI.showToast('檔案已收到，請等待後端轉錄服務', 'success');
-  }, 900);
+    UI.showToast(`❌ 處理失敗：${err.message}`, 'error');
+  } finally {
+    transcriptArea.disabled = false;
+    e.target.value = '';
+  }
+}
+
+/**
+ * Convert audio file to standard WAV format
+ * Decodes any supported audio format and re-encodes to 16-bit PCM WAV
+ */
+async function convertAudioFileToWav(file) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    const numberOfChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const bitDepth = 16;
+    
+    // Get channel data
+    const channelData = [];
+    for (let i = 0; i < numberOfChannels; i++) {
+      channelData.push(audioBuffer.getChannelData(i));
+    }
+    
+    // Interleave channels
+    const interleaved = interleaveAudioChannels(channelData);
+    
+    // Convert to 16-bit PCM
+    const pcmData = floatTo16BitPCM(interleaved);
+    
+    // Create WAV file
+    const wavBlob = encodeWav(pcmData, numberOfChannels, sampleRate, bitDepth);
+    
+    return new File([wavBlob], 'recording.wav', { type: 'audio/wav' });
+  } catch (error) {
+    throw new Error(`無法轉換音頻格式：${error.message}`);
+  }
+}
+
+/**
+ * Convert Float32 samples to 16-bit PCM
+ */
+function floatTo16BitPCM(samples) {
+  const pcm = new Int16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    // Clamp to [-1, 1]
+    let value = Math.max(-1, Math.min(1, samples[i]));
+    // Convert to 16-bit integer
+    pcm[i] = value < 0 ? value * 0x8000 : value * 0x7fff;
+  }
+  return pcm.buffer;
+}
+
+/**
+ * Encode audio data to WAV format
+ */
+function encodeWav(pcmData, numberOfChannels, sampleRate, bitDepth) {
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numberOfChannels * bytesPerSample;
+
+  // Calculate sizes
+  const dataSize = pcmData.byteLength;
+  const fileSize = 36 + dataSize;
+
+  // Create WAV header
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  // RIFF identifier
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, fileSize, true);
+
+  // RIFF type
+  writeString(view, 8, 'WAVE');
+
+  // fmt sub-chunk
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+
+  // data sub-chunk
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  // Combine header and PCM data
+  return new Blob([header, new Uint8Array(pcmData)], { type: 'audio/wav' });
+}
+
+/**
+ * Write string to DataView at offset
+ */
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
 }
 
 // ─── Analysis ────────────────────────────────────────────────

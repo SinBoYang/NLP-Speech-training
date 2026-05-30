@@ -1,10 +1,13 @@
 /**
- * api.js — Backend communication layer
- * Falls back to demo data when the API is unavailable.
+ * api.js — Backend API communication layer
+ * Handles all HTTP requests to the Flask backend
  */
 
 const API = {
 
+  /**
+   * Analyze transcript using specified speaker style
+   */
   async analyze(transcript, speaker) {
     const res = await fetch('/api/analyze', {
       method: 'POST',
@@ -15,12 +18,18 @@ const API = {
     return res.json();
   },
 
+  /**
+   * Get user training progress
+   */
   async getProgress() {
     const res = await fetch('/api/progress');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
 
+  /**
+   * Save completed training session
+   */
   async saveSession(data) {
     const res = await fetch('/api/sessions', {
       method: 'POST',
@@ -31,7 +40,60 @@ const API = {
     return res.json();
   },
 
-  /** Demo payload used when backend returns an error or non-200 */
+  /**
+   * Transcribe audio file to text using Azure Speech-to-Text
+   * @param {File} audioFile - Audio file to transcribe
+   * @returns {Promise<{success: boolean, transcript?: string, error?: string}>}
+   */
+  async transcribe(audioFile) {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      let jsonData;
+      try {
+        jsonData = await res.json();
+      } catch (parseError) {
+        return {
+          success: false,
+          error: `伺服器回應錯誤 (HTTP ${res.status}): 無法解析回應格式`,
+        };
+      }
+      
+      if (!res.ok) {
+        return {
+          success: false,
+          error: jsonData.error || `伺服器錯誤 (HTTP ${res.status})`,
+        };
+      }
+      
+      if (!jsonData.success) {
+        return {
+          success: false,
+          error: jsonData.error || '轉錄失敗，請重試。',
+        };
+      }
+      
+      return {
+        success: true,
+        transcript: jsonData.transcript,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || '轉錄服務出錯，請重試。',
+      };
+    }
+  },
+
+  /**
+   * Demo analysis fallback for development/testing
+   */
   demoAnalysis(transcript, speaker) {
     const nameMap = { trump: '川普', mlk: '金恩博士', xu: '許智誠' };
     const name    = nameMap[speaker] || 'AI';
@@ -81,6 +143,26 @@ const API = {
         { icon: '🎯', category: '故事開場',  text: '以一個真實的個人失敗故事開場——讓聽眾先感受低谷，再被你帶向高峰。' },
         { icon: '⚡', category: '節奏爆發',  text: '在關鍵句加快語速、拔高音量，製造情緒爆點，然後用沉默留白強調。' },
         { icon: '💪', category: '行動指令',  text: '每個段落結束前給出一個具體行動——「現在就做一件事：……」' },
+        { icon: '🌟', category: '正向錨定',  text: '重複肯定聽眾的潛力，讓他們在離場時相信「我也可以做到」。' },
+      ],
+    };
+
+    const summaryMap = {
+      trump: `你的演說已有明確主題與立場。以川普風格調整後，重點在「強化重複感」與「拆短句子」——讓每一句都擲地有聲。`,
+      mlk:   `你的演說具備真誠情感。以金恩博士風格調整後，重點在「詩意排比」與「意象語言」——讓話語能在聽眾心中迴盪。`,
+      xu:    `你的演說展現出個人熱情。以許智誠風格調整後，重點在「故事帶動」與「行動指令」——讓聽眾從感動走向行動。`,
+    };
+
+    return {
+      speaker,
+      improved_transcript: improvedTemplates[speaker] || `（${name} 風格改善版本）\n\n${transcript}`,
+      vocab_suggestions:   vocabMap[speaker]      || vocabMap.trump,
+      suggestions:         suggestionsMap[speaker] || suggestionsMap.trump,
+      summary:             summaryMap[speaker]     || `透過${name}風格的調整，你可以更有力地傳達核心訊息。`,
+    };
+  },
+
+};
         { icon: '🌟', category: '正向錨定',  text: '重複肯定聽眾的潛力，讓他們在離場時相信「我也可以做到」。' },
       ],
     };

@@ -1,14 +1,12 @@
-from flask import Flask, render_template
+"""Application entry point."""
+import os
+from dotenv import load_dotenv
+from app import create_app
 
-app = Flask(__name__)
+# Load environment variables
+load_dotenv()
 
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/api/hello')
-def hello():
-    return {'message': 'Hello from Flask!'}
+app = create_app(os.getenv('FLASK_ENV', 'development'))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
