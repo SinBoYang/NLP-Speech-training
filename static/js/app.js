@@ -144,9 +144,6 @@ function wireEvents() {
     if (TTS.synth.speaking) { TTS.stop(); } else { TTS.speak(getDraftText(), getDraftLang()); }
   });
 
-  // Translate to English
-  document.getElementById('draft-translate').addEventListener('click', handleTranslate);
-
   // Copy draft text
   document.getElementById('draft-copy').addEventListener('click', () => {
     const text = getDraftText();
@@ -357,9 +354,9 @@ async function startAnalysis() {
 // ─── Improved Draft (Step 4) ────────────────────────────────
 
 const speakerLabels = {
-  trump: '川普風格',
-  mlk:   '金恩博士風格',
-  xu:    '許智誠風格',
+  trump:     '川普風格',
+  mlk:       '金恩博士風格',
+  speaker_3: '黃仁勳風格',
 };
 
 function showImprovedDraft() {
@@ -393,89 +390,43 @@ function switchDraftLang(lang) {
 
   if (lang === 'zh') {
     content.textContent = state.improvedTranscriptZh;
-    document.getElementById('draft-translate').textContent = '🌐 翻譯英文';
   } else {
     if (state.improvedTranscriptEn) {
       content.textContent = state.improvedTranscriptEn;
-      document.getElementById('draft-translate').textContent = '🌐 顯示中文';
     } else {
-      // Trigger translation if English not yet fetched
-      handleTranslate();
+      doTranslate();
     }
   }
 }
 
-async function handleTranslate() {
-  if (state.currentDraftLang === 'zh') {
-    // Switch to English tab then translate
-    switchDraftLang('en');
-    return;
-  }
-
-  if (state.improvedTranscriptEn) {
-    // Already translated — just switch display
-    document.getElementById('draft-content').textContent = state.improvedTranscriptEn;
-    document.getElementById('draft-translate').textContent = '🌐 顯示中文';
-    return;
-  }
-
+async function doTranslate() {
   const loadingEl = document.getElementById('translate-loading');
   const errorEl   = document.getElementById('translate-error');
   const content   = document.getElementById('draft-content');
-  const btn       = document.getElementById('draft-translate');
 
   loadingEl.classList.remove('hidden');
   errorEl.classList.add('hidden');
-  btn.disabled = true;
+  content.textContent = '';
 
   try {
-    const translated = await translateToEnglish(state.improvedTranscriptZh);
-    state.improvedTranscriptEn = translated;
-    content.textContent = translated;
-    btn.textContent = '🌐 顯示中文';
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: state.improvedTranscriptZh }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    state.improvedTranscriptEn = data.translated || '';
+    content.textContent = state.improvedTranscriptEn;
     loadingEl.classList.add('hidden');
   } catch (_) {
     loadingEl.classList.add('hidden');
     errorEl.classList.remove('hidden');
-    // Revert lang toggle back to zh
     state.currentDraftLang = 'zh';
     document.getElementById('lang-zh').classList.add('active');
     document.getElementById('lang-en').classList.remove('active');
     content.textContent = state.improvedTranscriptZh;
-  } finally {
-    btn.disabled = false;
   }
-}
-
-async function translateToEnglish(text) {
-  if (!text) return '';
-
-  // Split into ≤400-char chunks at natural sentence boundaries
-  const CHUNK = 400;
-  const chunks = [];
-  const sentences = text.split(/(?<=[。！？\n])/);
-  let buf = '';
-
-  for (const s of sentences) {
-    if ((buf + s).length > CHUNK) {
-      if (buf) chunks.push(buf.trim());
-      buf = s;
-    } else {
-      buf += s;
-    }
-  }
-  if (buf.trim()) chunks.push(buf.trim());
-
-  const parts = [];
-  for (const chunk of chunks) {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=zh-TW|en`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (data.responseStatus !== 200) throw new Error('Translation API error');
-    parts.push(data.responseData.translatedText);
-  }
-
-  return parts.join(' ');
 }
 
 // ─── TTS Controller ──────────────────────────────────────────

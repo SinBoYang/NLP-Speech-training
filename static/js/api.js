@@ -95,14 +95,14 @@ const API = {
    * Demo analysis fallback for development/testing
    */
   demoAnalysis(transcript, speaker) {
-    const nameMap = { trump: '川普', mlk: '金恩博士', xu: '許智誠' };
+    const nameMap = { trump: '川普', mlk: '金恩博士', speaker_3: '黃仁勳' };
     const name    = nameMap[speaker] || 'AI';
     const short   = transcript.slice(0, 120).trimEnd();
 
     const improvedTemplates = {
-      trump: `各位，讓我告訴你們，這是非常、非常重要的事情——相信我。\n\n${short}...\n\n我們要做到最好，最棒的。沒有人比我們做得更好，這是事實。\n我的朋友們，我們會讓一切變得偉大。謝謝你們！`,
-      mlk:   `我有一個夢想——一個關於明天的夢想，一個關於人類尊嚴的夢想。\n\n${short}...\n\n讓自由的鐘聲響徹每一個山谷，讓每一個靈魂都能站在陽光下，看見希望的彼岸。\n讓我們攜手，共同走向那光明的未來。`,
-      xu:    `朋友們！你們今天相信自己嗎？！\n\n${short}...\n\n成功不是偶然的，是每一天的堅持、每一刻的突破！\n今天的選擇，決定了你明天的高度！加油，你可以的！`,
+      trump:     `各位，讓我告訴你們，這是非常、非常重要的事情——相信我。\n\n${short}...\n\n我們要做到最好，最棒的。沒有人比我們做得更好，這是事實。\n我的朋友們，我們會讓一切變得偉大。謝謝你們！`,
+      mlk:       `我有一個夢想——一個關於明天的夢想，一個關於人類尊嚴的夢想。\n\n${short}...\n\n讓自由的鐘聲響徹每一個山谷，讓每一個靈魂都能站在陽光下，看見希望的彼岸。\n讓我們攜手，共同走向那光明的未來。`,
+      speaker_3: `【平台轉移已經發生】\n\n${short}...\n\n這不是漸進式改善，這是整個 Full Stack 的重新發明。第一，我們必須看清楚趨勢。第二，我們要決定什麼不去做。第三，傾全力衝。\n\n跑起來，別用走的。`,
     };
 
     const vocabMap = {
@@ -118,11 +118,11 @@ const API = {
         { original: '努力',   alternatives: ['奮鬥', '前仆後繼', '不懈追求'],    reason: '情感張力更強' },
         { original: '一起',   alternatives: ['肩並肩', '攜手同行', '共同站立'],  reason: 'MLK 排比句核心詞彙' },
       ],
-      xu: [
-        { original: '可以',   alternatives: ['絕對做得到', '你辦得到', '你就是可以'], reason: '許智誠式正向強化' },
-        { original: '努力',   alternatives: ['拼命衝', '全力爆發', '燃燒自己'],  reason: '熱情激昂的動詞' },
-        { original: '成功',   alternatives: ['突破自己', '站上頂峰', '超越極限'], reason: '強調個人突破' },
-        { original: '學習',   alternatives: ['吸收養分', '不斷進化', '打磨自己'], reason: '充滿行動感的替換' },
+      speaker_3: [
+        { original: '改變',   alternatives: ['平台位移', '全面重新發明', '根本性轉型'],  reason: '黃仁勳慣用規模化技術詞彙' },
+        { original: '很多',   alternatives: ['350 倍', '4000 萬倍', '10 兆規模'],         reason: '以倍數與數字製造衝擊感' },
+        { original: '進步',   alternatives: ['技術突破', '拐點', 'Scaling Law 展現'],     reason: '技術語境下的精確詞彙' },
+        { original: '繼續',   alternatives: ['傾全力衝', '跑起來', '每年推進'],           reason: '黃仁勳式行動召喚語' },
       ],
     };
 
@@ -139,38 +139,18 @@ const API = {
         { icon: '🔥', category: '情感高峰',  text: '在演說中段安排情緒最高點，之後用溫柔收尾，讓聽眾餘韻猶存。' },
         { icon: '✊', category: '集體認同',  text: '使用「我們」「我們的」凝聚共同體感，讓每位聽眾都覺得身在其中。' },
       ],
-      xu: [
-        { icon: '🎯', category: '故事開場',  text: '以一個真實的個人失敗故事開場——讓聽眾先感受低谷，再被你帶向高峰。' },
-        { icon: '⚡', category: '節奏爆發',  text: '在關鍵句加快語速、拔高音量，製造情緒爆點，然後用沉默留白強調。' },
-        { icon: '💪', category: '行動指令',  text: '每個段落結束前給出一個具體行動——「現在就做一件事：……」' },
-        { icon: '🌟', category: '正向錨定',  text: '重複肯定聽眾的潛力，讓他們在離場時相信「我也可以做到」。' },
+      speaker_3: [
+        { icon: '📊', category: '數據衝擊',  text: '在核心論點後立刻加上具體倍數或規模數字，讓聽眾感受到趨勢的量級。' },
+        { icon: '📖', category: '三段故事',  text: '以「背景 → 危機 → 轉折 + 教訓」結構說一個真實的失敗故事，不迴避羞辱性細節。' },
+        { icon: '⚡', category: '章節標題',  text: '每個主題切換時用粗體標題或【章節名】明確宣告，讓聽眾知道你在哪裡。' },
+        { icon: '🚀', category: '行動召喚',  text: '結尾用「跑起來，別用走的」式的行動指令收尾，留下一句可帶走的話。' },
       ],
     };
 
     const summaryMap = {
       trump: `你的演說已有明確主題與立場。以川普風格調整後，重點在「強化重複感」與「拆短句子」——讓每一句都擲地有聲。`,
       mlk:   `你的演說具備真誠情感。以金恩博士風格調整後，重點在「詩意排比」與「意象語言」——讓話語能在聽眾心中迴盪。`,
-      xu:    `你的演說展現出個人熱情。以許智誠風格調整後，重點在「故事帶動」與「行動指令」——讓聽眾從感動走向行動。`,
-    };
-
-    return {
-      speaker,
-      improved_transcript: improvedTemplates[speaker] || `（${name} 風格改善版本）\n\n${transcript}`,
-      vocab_suggestions:   vocabMap[speaker]      || vocabMap.trump,
-      suggestions:         suggestionsMap[speaker] || suggestionsMap.trump,
-      summary:             summaryMap[speaker]     || `透過${name}風格的調整，你可以更有力地傳達核心訊息。`,
-    };
-  },
-
-};
-        { icon: '🌟', category: '正向錨定',  text: '重複肯定聽眾的潛力，讓他們在離場時相信「我也可以做到」。' },
-      ],
-    };
-
-    const summaryMap = {
-      trump: `你的演說已有明確主題與立場。以川普風格調整後，重點在「強化重複感」與「拆短句子」——讓每一句都擲地有聲。`,
-      mlk:   `你的演說具備真誠情感。以金恩博士風格調整後，重點在「詩意排比」與「意象語言」——讓話語能在聽眾心中迴盪。`,
-      xu:    `你的演說展現出個人熱情。以許智誠風格調整後，重點在「故事帶動」與「行動指令」——讓聽眾從感動走向行動。`,
+      speaker_3: `你的演說已有清楚的核心訊息。以黃仁勳風格調整後，重點在「數據衝擊感」與「三段故事結構」——讓聽眾感受規模，也記住教訓。`,
     };
 
     return {

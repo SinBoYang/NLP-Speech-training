@@ -136,9 +136,9 @@ const UI = {
 
     // Coach banner
     const speakerMeta = {
-      trump: { label: '川普風格', avatar: '🦅', title: '川普教練的分析報告' },
-      mlk:   { label: '金恩博士風格', avatar: '✊', title: '金恩博士教練的分析報告' },
-      xu:    { label: '許智誠風格', avatar: '🔥', title: '許智誠教練的分析報告' },
+      trump:     { label: '川普風格',   avatar: '🦅', title: '川普教練的分析報告' },
+      mlk:       { label: '金恩博士風格', avatar: '✊', title: '金恩博士教練的分析報告' },
+      speaker_3: { label: '黃仁勳風格', avatar: '⚡', title: '黃仁勳教練的分析報告' },
     };
     const meta = speakerMeta[data.speaker] || { label: 'AI 風格', avatar: '🎓', title: 'AI 教練的分析報告' };
 
@@ -165,11 +165,11 @@ const UI = {
     const speakerNameEl = document.getElementById('suggestions-speaker-name');
     const speakerDescEl = document.getElementById('suggestions-speaker-desc');
     const descMap = {
-      trump: '以下是模仿川普演說風格的針對性指導',
-      mlk:   '以下是模仿金恩博士演說風格的針對性指導',
-      xu:    '以下是模仿許智誠演說風格的針對性指導',
+      trump:     '以下是模仿川普演說風格的針對性指導',
+      mlk:       '以下是模仿金恩博士演說風格的針對性指導',
+      speaker_3: '以下是模仿黃仁勳演說風格的針對性指導',
     };
-    if (speakerNameEl) speakerNameEl.textContent = { trump: '川普', mlk: '金恩博士', xu: '許智誠' }[data.speaker] || 'AI';
+    if (speakerNameEl) speakerNameEl.textContent = { trump: '川普', mlk: '金恩博士', speaker_3: '黃仁勳' }[data.speaker] || 'AI';
     if (speakerDescEl) speakerDescEl.textContent = descMap[data.speaker] || '';
 
     const grid = document.getElementById('suggestions-grid');

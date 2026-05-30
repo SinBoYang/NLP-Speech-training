@@ -1,16 +1,62 @@
 """API routes blueprint."""
-from flask import Blueprint, request, jsonify, current_app
-from werkzeug.utils import secure_filename
 import os
 import tempfile
 import uuid
+import requests as http_requests
+from flask import Blueprint, request, jsonify, current_app
+from werkzeug.utils import secure_filename
 from app.services.llm import analyze_transcript
 from app.services.stt import AzureSTTService
 
 api_bp = Blueprint('api', __name__)
 
-# Allowed audio file extensions
 ALLOWED_AUDIO_EXTENSIONS = {'wav', 'mp3', 'ogg', 'flac', 'm4a', 'wma'}
+_ISSUE_ICONS = ['🎯', '💡', '⚡', '🔍', '📌']
+
+
+def _transform(raw: dict, speaker: str) -> dict:
+    """Map Gemini JSON schema output to the shape the frontend expects."""
+    if raw.get('transcript_too_short'):
+        return {'error': '逐字稿太短，請至少輸入 30 字', 'transcript_too_short': True}
+
+    analysis  = raw.get('analysis', {})
+    rewritten = raw.get('rewritten_transcript', {})
+
+    improved_transcript = rewritten.get('content', '')
+
+    vocab_suggestions = [
+        {
+            'original':     item.get('original', ''),
+            'alternatives': [item.get('revised', '')] if item.get('revised') else [],
+            'reason':       item.get('reason', ''),
+        }
+        for item in rewritten.get('change_log', [])[:6]
+        if item.get('original')
+    ]
+
+    suggestions = []
+    for i, item in enumerate(analysis.get('top_issues', [])):
+        quote = item.get('quote', '')
+        text  = item.get('reason', '')
+        if quote:
+            text += f'（原句：「{quote}」）'
+        suggestions.append({
+            'icon':     _ISSUE_ICONS[i % len(_ISSUE_ICONS)],
+            'category': item.get('issue', f'問題 {i+1}'),
+            'text':     text,
+        })
+
+    score    = analysis.get('overall_score', 0)
+    feedback = analysis.get('structure', {}).get('feedback', '')
+    summary  = f'整體評分：{score}/10。{feedback}' if feedback else f'整體評分：{score}/10。'
+
+    return {
+        'speaker':             speaker,
+        'improved_transcript': improved_transcript,
+        'vocab_suggestions':   vocab_suggestions,
+        'suggestions':         suggestions,
+        'summary':             summary,
+    }
 
 
 @api_bp.route('/hello', methods=['GET'])
@@ -26,15 +72,18 @@ def status():
 @api_bp.route('/analyze', methods=['POST'])
 def analyze():
     """Analyze transcript and return improved version with suggestions."""
-    data = request.get_json() or {}
+    data       = request.get_json() or {}
     transcript = data.get('transcript', '')
-    speaker = data.get('speaker', 'trump')
+    speaker    = data.get('speaker', 'trump')
 
     if not transcript:
         return jsonify({'error': '請提供逐字稿'}), 400
 
     try:
-        result = analyze_transcript(transcript, speaker)
+        raw    = analyze_transcript(transcript, speaker)
+        result = _transform(raw, speaker)
+        if result.get('transcript_too_short'):
+            return jsonify(result), 422
         return jsonify(result)
     except EnvironmentError as e:
         return jsonify({'error': str(e)}), 500
@@ -44,22 +93,54 @@ def analyze():
 
 @api_bp.route('/progress', methods=['GET'])
 def get_progress():
-    """Return user training progress."""
-    # TODO: Integrate with database
     return jsonify({
         'total_sessions': 0,
-        'avg_score': None,
-        'best_score': None,
-        'streak_days': 0,
-        'sessions': [],
+        'avg_score':      None,
+        'best_score':     None,
+        'streak_days':    0,
+        'sessions':       [],
     })
 
 
 @api_bp.route('/sessions', methods=['POST'])
 def save_session():
-    """Save a completed training session."""
-    # TODO: Save to database
     return jsonify({'status': 'ok', 'id': 'demo-001'})
+
+
+@api_bp.route('/translate', methods=['POST'])
+def translate_text():
+    """Translate Chinese text to English via Azure Translator."""
+    data = request.get_json() or {}
+    text = data.get('text', '').strip()
+    if not text:
+        return jsonify({'error': '請提供文字'}), 400
+
+    key = os.environ.get('AZURE_TRANSLATOR_KEY')
+    if not key:
+        return jsonify({'error': '翻譯服務未設定'}), 500
+
+    region = os.environ.get('AZURE_TRANSLATOR_REGION', '')
+    headers = {
+        'Ocp-Apim-Subscription-Key': key,
+        'Content-Type': 'application/json',
+    }
+    if region:
+        headers['Ocp-Apim-Subscription-Region'] = region
+
+    try:
+        resp = http_requests.post(
+            'https://api.cognitive.microsofttranslator.com/translate',
+            params={'api-version': '3.0', 'from': 'zh-Hant', 'to': 'en'},
+            headers=headers,
+            json=[{'text': text}],
+            timeout=15,
+        )
+        if not resp.ok:
+            return jsonify({'error': f'Azure 錯誤 {resp.status_code}：{resp.text}'}), 502
+        translated = resp.json()[0]['translations'][0]['text']
+        return jsonify({'translated': translated})
+    except Exception as e:
+        return jsonify({'error': f'翻譯失敗：{e}'}), 500
 
 
 @api_bp.route('/transcribe', methods=['POST'])
