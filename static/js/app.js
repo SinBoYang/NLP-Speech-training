@@ -141,7 +141,7 @@ function wireEvents() {
 
   // TTS toggle
   document.getElementById('tts-toggle').addEventListener('click', () => {
-    if (TTS.synth.speaking) { TTS.stop(); } else { TTS.speak(getDraftText(), getDraftLang()); }
+    if (TTS.speaking) { TTS.stop(); } else { TTS.speak(getDraftText(), getDraftLang()); }
   });
 
   // Copy draft text
@@ -456,21 +456,43 @@ async function doTranslate() {
 // ─── TTS Controller ──────────────────────────────────────────
 
 const TTS = {
-  synth: window.speechSynthesis,
+  _audio: null,
 
-  speak(text, lang = 'zh-TW') {
+  get speaking() {
+    return !!(this._audio && !this._audio.paused && !this._audio.ended);
+  },
+
+  async speak(text, lang = 'zh-TW') {
     this.stop();
     if (!text) { UI.showToast('沒有文字可以朗讀', 'error'); return; }
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang  = lang;
-    utter.onstart = () => setTTSToggle(true);
-    utter.onend   = () => setTTSToggle(false);
-    utter.onerror = () => setTTSToggle(false);
-    this.synth.speak(utter);
+    setTTSToggle(true);
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'TTS 失敗');
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      this._audio = new Audio(url);
+      this._audio.onended = () => { setTTSToggle(false); URL.revokeObjectURL(url); };
+      this._audio.onerror = () => { setTTSToggle(false); URL.revokeObjectURL(url); };
+      this._audio.play();
+    } catch (err) {
+      setTTSToggle(false);
+      UI.showToast(`朗讀失敗：${err.message}`, 'error');
+    }
   },
 
   stop() {
-    this.synth.cancel();
+    if (this._audio) {
+      this._audio.pause();
+      this._audio = null;
+    }
     setTTSToggle(false);
   },
 };

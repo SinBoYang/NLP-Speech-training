@@ -3,7 +3,7 @@ import os
 import tempfile
 import uuid
 import requests as http_requests
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response
 from werkzeug.utils import secure_filename
 from app.services.llm import analyze_transcript
 from app.services.stt import AzureSTTService
@@ -230,3 +230,34 @@ def transcribe_audio():
     except Exception as e:
         current_app.logger.error(f'Transcription error: {str(e)}', exc_info=True)
         return jsonify({'error': f'轉錄失敗：{str(e)}', 'reason': 'service_error'}), 500
+
+
+@api_bp.route('/tts', methods=['POST'])
+def text_to_speech():
+    """Synthesize text to speech using Azure TTS and return WAV audio."""
+    data = request.get_json() or {}
+    text = data.get('text', '').strip()
+    lang = data.get('lang', 'zh-TW')
+
+    if not text:
+        return jsonify({'error': '請提供文字'}), 400
+
+    speech_key    = os.environ.get('AZURE_SPEECH_KEY')
+    speech_region = os.environ.get('AZURE_SPEECH_REGION')
+    if not speech_key or not speech_region:
+        return jsonify({'error': 'Azure TTS 服務未設定'}), 500
+
+    import azure.cognitiveservices.speech as speechsdk
+
+    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
+    speech_config.speech_synthesis_language = lang
+
+    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+    result = synthesizer.speak_text_async(text).get()
+
+    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+        return Response(result.audio_data, mimetype='audio/wav')
+
+    cancellation = result.cancellation_details
+    current_app.logger.error(f'TTS failed: {cancellation.reason} {cancellation.error_details}')
+    return jsonify({'error': f'語音合成失敗：{cancellation.error_details}'}), 500
