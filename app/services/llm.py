@@ -61,7 +61,8 @@ REWRITE_SYSTEM = """
 3. 改寫結果不同於原句
 4. 輸入N句，輸出N句
 
-JSON: [{"original": "原句", "rewritten": "改寫"}]
+JSON 格式（必須是物件，sentences 為陣列）：
+{"sentences": [{"original": "原句", "rewritten": "改寫"}, ...]}
 """
 
 REWRITE_EXAMPLES = {
@@ -217,120 +218,7 @@ def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_r
     response = client.chat.completions.create(
         model=os.environ.get("AZURE_OPENAI_DEPLOYMENT"),
         messages=[
-            {"role": "system", "content": "你是一位風格改寫專家。以 JSON 陣列格式輸出改寫結果。"},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    
-    sentences_result = json.loads(response.choices[0].message.content)
-    
-    # 處理回應，如果是 nested JSON 則提取陣列
-    if isinstance(sentences_result, dict) and "rewritten" in sentences_result:
-        # 可能返回 {rewritten: [...]} 格式
-        sentences_result = sentences_result.get("rewritten", [])
-    if not isinstance(sentences_result, list):
-        # 如果還不是列表，嘗試提取 data 字段
-        if isinstance(sentences_result, dict) and "data" in sentences_result:
-            sentences_result = sentences_result["data"]
-        else:
-            sentences_result = []
-
-    content = "\n".join(
-        s.get("rewritten", s.get("original", ""))
-        for s in sentences_result
-    )
-    change_log = [
-        {"original": s.get("original", ""), "revised": s.get("rewritten", ""), "reason": ""}
-        for s in sentences_result
-    ]
-
-    return {
-        "speaker_style": speaker,
-        "content": content,
-        "sentences": sentences_result,
-        "style_patterns_used": [],
-        "change_log": change_log,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Call 2 — Rewriting (with analysis guidance)
-# ---------------------------------------------------------------------------
-
-def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_result: dict) -> dict:
-    """改寫逐字稿，根據分析結果進行有針對性的修改。"""
-    style = SPEAKER_STYLES.get(speaker, "")
-    examples = REWRITE_EXAMPLES.get(speaker, "")
-
-    sentences = _split_sentences(transcript)
-    numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
-
-    # 提取分析結果中的關鍵要點
-    analysis = analysis_result.get('analysis', {})
-    vocab_feedback = analysis.get('vocabulary', {}).get('feedback', '')
-    rhythm_feedback = analysis.get('rhythm', {}).get('feedback', '')
-    emotion_feedback = analysis.get('emotion_arc', {}).get('feedback', '')
-    persuasion = analysis.get('persuasion', {})
-    ethos_feedback = persuasion.get('ethos', {}).get('feedback', '')
-    pathos_feedback = persuasion.get('pathos', {}).get('feedback', '')
-    logos_feedback = persuasion.get('logos', {}).get('feedback', '')
-    top_issues = analysis.get('top_issues', [])
-
-    # 組建分析指導部分
-    improvement_guidance = """## 根據分析結果需要改進的地方\n"""
-    
-    if vocab_feedback:
-        improvement_guidance += f"\n【詞彙與語言】\n{vocab_feedback}\n"
-    
-    if rhythm_feedback:
-        improvement_guidance += f"\n【節奏與句型】\n{rhythm_feedback}\n"
-    
-    if emotion_feedback:
-        improvement_guidance += f"\n【情感弧線】\n{emotion_feedback}\n"
-    
-    persuasion_guidance = []
-    if ethos_feedback:
-        persuasion_guidance.append(f"建立可信度：{ethos_feedback}")
-    if pathos_feedback:
-        persuasion_guidance.append(f"情感共鳴：{pathos_feedback}")
-    if logos_feedback:
-        persuasion_guidance.append(f"邏輯支撐：{logos_feedback}")
-    
-    if persuasion_guidance:
-        improvement_guidance += f"\n【說服力（Ethos/Pathos/Logos）】\n" + "\n".join(persuasion_guidance) + "\n"
-    
-    if top_issues:
-        improvement_guidance += "\n【優先修改的問題】\n"
-        for issue in top_issues[:3]:
-            issue_text = f"\n- {issue.get('issue', '問題')}：{issue.get('reason', '')}\n  原句：\"{issue.get('quote', '')}\""
-            improvement_guidance += issue_text
-
-    prompt = (
-        REWRITE_SYSTEM
-        + f"\n\n---\n## 目標演說家風格參考\n{style}\n"
-        + f"\n{examples}\n"
-        + f"\n---\n{improvement_guidance}\n"
-        + f"\n---\n## 改寫要求（重要）\n"
-        + f"你現在將根據上述分析結果改進以下 {len(sentences)} 句話。\n\n"
-        + f"改寫的步驟：\n"
-        + f"第一步：閱讀每一句，對照「根據分析結果需要改進的地方」中的具體問題\n"
-        + f"第二步：改進該句以解決指出的問題（詞彙、節奏、說服力、情感等）\n"
-        + f"第三步：用上述「目標演說家風格」重新表達改進後的句子\n"
-        + f"第四步：確保改寫後的句子與原句不同，且解決了分析指出的問題\n\n"
-        + f"特別提醒：\n"
-        + f"- 不要只改風格，還要改內容以解決分析指出的弱點\n"
-        + f"- 可以改變句子結構、添加例子或細節，只要不改變核心訊息\n"
-        + f"- 每句都必須改寫，不能保留原句\n"
-        + f"- 目標是產出既改進了內容，又有目標風格的新版本\n\n"
-        + f"現在請改寫以下 {len(sentences)} 句：\n\n{numbered}\n"
-    )
-
-    response = client.chat.completions.create(
-        model=os.environ.get("AZURE_OPENAI_DEPLOYMENT"),
-        messages=[
-            {"role": "system", "content": "你是一位風格改寫專家。以 JSON 陣列格式輸出改寫結果。"},
+            {"role": "system", "content": "你是一位風格改寫專家。必須以 JSON 物件格式輸出，格式為 {\"sentences\": [{\"original\": \"原句\", \"rewritten\": \"改寫\"}]}。"},
             {"role": "user", "content": prompt},
         ],
         temperature=0.7,
@@ -342,29 +230,26 @@ def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_r
     # Handle different response formats from Azure OpenAI
     sentences_result = []
     
-    if isinstance(response_data, dict):
-        # Check for common wrapper keys
-        if "alternatives" in response_data:
-            sentences_result = response_data["alternatives"]
-        elif "rewritten" in response_data:
-            sentences_result = response_data["rewritten"]
-        elif "data" in response_data:
-            sentences_result = response_data["data"]
-        elif "sentences" in response_data:
-            sentences_result = response_data["sentences"]
-        elif len(response_data) > 0:
-            # If it's a dict of numbered items, convert to list
-            for key in sorted(response_data.keys()):
-                if key != "error":  # Skip error messages
-                    item = response_data[key]
-                    if isinstance(item, dict):
-                        sentences_result.append(item)
-                    elif isinstance(item, list):
-                        sentences_result.extend(item)
-                    else:
-                        sentences_result.append({"original": key, "rewritten": str(item)})
-    elif isinstance(response_data, list):
+    if isinstance(response_data, list):
         sentences_result = response_data
+    elif isinstance(response_data, dict):
+        # Try known wrapper keys in priority order
+        for key in ("sentences", "rewritten", "data", "alternatives", "items", "result"):
+            if key in response_data and isinstance(response_data[key], list):
+                sentences_result = response_data[key]
+                break
+        else:
+            # Fallback: dict of numbered items — sort numerically
+            numeric_keys = sorted(
+                (k for k in response_data if k != "error"),
+                key=lambda k: int(k) if k.isdigit() else 0
+            )
+            for key in numeric_keys:
+                item = response_data[key]
+                if isinstance(item, dict):
+                    sentences_result.append(item)
+                elif isinstance(item, list):
+                    sentences_result.extend(item)
 
     # Extract content from the result
     content_parts = []
@@ -377,7 +262,7 @@ def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_r
             if item:
                 content_parts.append(item)
     
-    content = "\n".join(content_parts)
+    content = "".join(content_parts)
     
     change_log = []
     for s in sentences_result:
