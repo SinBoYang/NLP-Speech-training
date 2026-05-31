@@ -1,0 +1,270 @@
+/* ═══════════════════════════════════════════
+   SpeakElite — Advanced Analysis Stylesheet
+   Analysis Cards · Grid Layout
+   ═══════════════════════════════════════════ */
+
+/* ─── Analysis Grid ─── */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ─── Analysis Card ─── */
+.analysis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  transition: all .25s cubic-bezier(.16,1,.3,1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analysis-card:hover {
+  border-color: rgba(124,108,240,.3);
+  background: var(--bg-card-hover);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(124,108,240,.15);
+}
+
+.analysis-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(124,108,240,.12);
+}
+
+.analysis-card-header h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0;
+  flex: 1;
+}
+
+.analysis-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.analysis-card-content {
+  font-size: 0.85rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.analysis-card-content .placeholder {
+  color: var(--text-3);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ─── Analysis Stats ─── */
+.analysis-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.analysis-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.analysis-stat-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--purple-light);
+}
+
+/* ─── Analysis Level Badge ─── */
+.analysis-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(124,108,240,.12);
+  color: var(--purple-light);
+  border: 1px solid rgba(124,108,240,.22);
+}
+
+.analysis-badge.high {
+  background: rgba(248,113,113,.12);
+  color: #fca5a5;
+  border-color: rgba(248,113,113,.22);
+}
+
+.analysis-badge.low {
+  background: rgba(74,222,128,.12);
+  color: #86efac;
+  border-color: rgba(74,222,128,.22);
+}
+
+.analysis-badge.medium {
+  background: rgba(251,191,36,.12);
+  color: #fcd34d;
+  border-color: rgba(251,191,36,.22);
+}
+
+/* ─── Analysis Item List ─── */
+.analysis-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analysis-item {
+  padding: 8px 10px;
+  border-left: 2px solid rgba(124,108,240,.3);
+  background: rgba(124,108,240,.05);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.analysis-item-word {
+  font-weight: 700;
+  color: var(--purple-light);
+}
+
+.analysis-item-count {
+  color: var(--text-3);
+  font-size: 0.75rem;
+}
+
+/* ─── Analysis Meter ─── */
+.analysis-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.analysis-meter-label {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.analysis-meter-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-2);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.analysis-meter-fill {
+  height: 100%;
+  background: var(--grad-brand);
+  border-radius: 3px;
+  transition: width .35s ease;
+}
+
+.analysis-meter-value {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* ─── Analysis Trajectory ─── */
+.trajectory-stages {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.stage {
+  padding: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.stage-label {
+  color: var(--text-3);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.stage-score {
+  color: var(--purple-light);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* ─── Analysis Arc ─── */
+.arc-pattern {
+  padding: 8px 12px;
+  background: rgba(124,108,240,.08);
+  border-left: 3px solid var(--purple);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  margin-top: 8px;
+}
+
+/* ─── Speech Style Tag ─── */
+.speech-style-tag {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(124,108,240,.12);
+  color: var(--purple-light);
+  border: 1px solid rgba(124,108,240,.22);
+  margin-top: 8px;
+}
+
+/* ─── Data-Emotion Ratio ─── */
+.ratio-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+}
+
+.ratio-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-2);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  border: 1px solid var(--border);
+}
+
+.ratio-data {
+  background: rgba(34,211,238,.4);
+  flex-shrink: 0;
+  transition: flex .35s ease;
+}
+
+.ratio-emotion {
+  background: rgba(168,85,247,.4);
+  flex: 1;
+}
+
+.ratio-label {
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}

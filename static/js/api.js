@@ -92,6 +92,39 @@ const API = {
   },
 
   /**
+   * Perform advanced linguistic analysis on transcript
+   * Includes: filler words, vocabulary richness, sentiment, key phrases
+   */
+  async advancedAnalysis(transcript) {
+    try {
+      const res = await fetch('/api/advanced-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        return {
+          success: false,
+          error: error.error || '分析失敗',
+        };
+      }
+      
+      const data = await res.json();
+      return {
+        success: true,
+        analysis: data.analysis,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || '分析服務出錯',
+      };
+    }
+  },
+
+  /**
    * Demo analysis fallback for development/testing
    */
   demoAnalysis(transcript, speaker) {
@@ -150,7 +183,7 @@ const API = {
     const summaryMap = {
       trump: `你的演說已有明確主題與立場。以川普風格調整後，重點在「強化重複感」與「拆短句子」——讓每一句都擲地有聲。`,
       mlk:   `你的演說具備真誠情感。以金恩博士風格調整後，重點在「詩意排比」與「意象語言」——讓話語能在聽眾心中迴盪。`,
-      speaker_3: `你的演說已有清楚的核心訊息。以黃仁勳風格調整後，重點在「數據衝擊感」與「三段故事結構」——讓聽眾感受規模，也記住教訓。`,
+      xu:    `你的演說展現出個人熱情。以許智誠風格調整後，重點在「故事帶動」與「行動指令」——讓聽眾從感動走向行動。`,
     };
 
     return {
@@ -163,7 +196,3 @@ const API = {
   },
 
 };
-
-function rand(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}

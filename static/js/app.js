@@ -259,6 +259,23 @@ async function convertAudioFileToWav(file) {
 }
 
 /**
+ * Interleave multi-channel audio data
+ */
+function interleaveAudioChannels(channelData) {
+  const channelCount = channelData.length;
+  const sampleCount = channelData[0].length;
+  const interleaved = new Float32Array(sampleCount * channelCount);
+
+  for (let i = 0; i < sampleCount; i++) {
+    for (let j = 0; j < channelCount; j++) {
+      interleaved[i * channelCount + j] = channelData[j][i];
+    }
+  }
+
+  return interleaved;
+}
+
+/**
  * Convert Float32 samples to 16-bit PCM
  */
 function floatTo16BitPCM(samples) {
@@ -342,7 +359,14 @@ async function startAnalysis() {
 
     clearInterval(loadingInterval);
     state.analysisResult = result;
+    
+    // Render main results
     UI.renderResults(result, state.transcript);
+    
+    // Trigger advanced linguistic analysis
+    setTimeout(() => {
+      performAdvancedAnalysis();
+    }, 500);
 
   } catch (err) {
     clearInterval(loadingInterval);

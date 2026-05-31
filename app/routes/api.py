@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from app.services.llm import analyze_transcript
 from app.services.stt import AzureSTTService
+from app.services.analysis import TranscriptAnalyzer
 
 api_bp = Blueprint('api', __name__)
 
@@ -89,6 +90,36 @@ def analyze():
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': f'分析失敗：{e}'}), 500
+
+
+@api_bp.route('/advanced-analysis', methods=['POST'])
+def advanced_analysis():
+    """
+    Perform advanced linguistic analysis on transcript.
+    Includes: filler words, vocabulary richness, sentiment trajectory,
+    key phrases, and data vs emotion ratio.
+    """
+    try:
+        data = request.get_json() or {}
+        transcript = data.get('transcript', '')
+        
+        if not transcript or len(transcript.strip()) < 10:
+            return jsonify({'error': '逐字稿過短，請至少輸入 10 字'}), 400
+        
+        analyzer = TranscriptAnalyzer(transcript)
+        report = analyzer.generate_full_report()
+        
+        return jsonify({
+            'success': True,
+            'analysis': report,
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f'Advanced analysis error: {str(e)}', exc_info=True)
+        return jsonify({
+            'error': f'分析失敗：{str(e)}',
+            'reason': 'analysis_error',
+        }), 500
 
 
 @api_bp.route('/progress', methods=['GET'])

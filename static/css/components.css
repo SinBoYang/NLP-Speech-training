@@ -327,6 +327,46 @@
 .speaker-en { font-size: 0.75rem; color: var(--text-3); margin-bottom: 8px; }
 .speaker-desc { font-size: 0.83rem; color: var(--text-2); line-height: 1.6; }
 
+.speaker-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 8px;
+  padding: 12px;
+  background: rgba(255,255,255,.04);
+  border-radius: var(--r-sm);
+}
+
+.feature-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.feature-icon {
+  font-size: 1.1rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+.feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feature-text strong {
+  font-size: 0.82rem;
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.feature-text small {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
 .speaker-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .tag {
   padding: 3px 10px;

@@ -45,7 +45,7 @@ SPEAKER_STYLES: dict[str, str] = {
 **禁止出現**：口語縮寫、冷漠中性語氣、數據羅列取代情感、商業術語
 """,
 
-    "speaker_3": """
+    "xu": """
 ## 目標風格：Jensen Huang（黃仁勳）
 
 **語言特徵**
