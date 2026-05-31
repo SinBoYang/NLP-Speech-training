@@ -1,79 +1,51 @@
-"""Gemini API service — speech analysis (call 1) + style rewriting (call 2)."""
+"""Azure OpenAI service — speech analysis (call 1) + style rewriting (call 2)."""
 import os
 import re
 import json
-import google.generativeai as genai
+from openai import AzureOpenAI
 
 from app.services.speaker_styles import SPEAKER_STYLES
+
+# ---------------------------------------------------------------------------
+# Initialize Azure OpenAI Client
+# ---------------------------------------------------------------------------
+
+def _make_client() -> AzureOpenAI:
+    return AzureOpenAI(
+        api_key=os.environ.get("AZURE_OPENAI_KEY"),
+        api_version="2024-02-15-preview",
+        azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+    )
 
 # ---------------------------------------------------------------------------
 # Call 1 — Analysis prompt (no rewriting)
 # ---------------------------------------------------------------------------
 
 ANALYSIS_PROMPT = """
-你是一位專業演說分析師。你的唯一任務是分析演說稿，不做任何改寫。
+你是演說分析師。分析演說稿，不改寫。
 
-## 分析項目
+分析項目：
+1. 結構：開場/主體/結尾清晰度，論點遞進
+2. 詞彙：被動句、消極詞彙、模糊用語位置
+3. 節奏：句型重複、連接詞冗餘位置
+4. 情感：情緒弧線(1-10)、遞升感
+5. 說服力：Ethos(可信度)、Pathos(共鳴)、Logos(證據)
+6. 三大弱點：各附原句引述與說明
 
-### 1. 結構
-評估開場 / 主體 / 結尾是否清晰，論點是否有層次遞進。
-
-### 2. 詞彙與語言強度
-- 被動句與消極詞彙使用頻率（標記具體位置）
-- 語言精確度：是否使用模糊詞彙代替具體陳述
-
-### 3. 節奏
-- 建議停頓位置（依語句密度與長度）
-- 標記多餘的連接詞或重複句型
-
-### 4. 情緒弧線
-- 輸出情緒分數時間軸（1–10，依全文比例切分）
-- 判斷是否有情緒遞升感
-
-### 5. 說服力（Ethos / Pathos / Logos）
-- Ethos：是否建立演講者可信度
-- Pathos：情感共鳴程度（附上依據句子）
-- Logos：是否有具體數據、案例、邏輯支撐
-
-### 6. 關鍵弱點
-列出最需優先改善的三個問題，每個附上原文引句與說明。
-
-## 規則
-- 評分需有對應說明，不給無根據的滿分
-- 逐字稿空白或過短（< 30 字）：回傳 `"transcript_too_short": true`
-- 輸入為 zh-TW → 使用繁體中文輸出
-
-## 輸出格式（JSON）
-
-```json
+JSON 輸出格式：
 {
   "analysis": {
-    "structure":  { "score": 0, "feedback": "", "suggestions": [] },
-    "vocabulary": { "score": 0, "feedback": "", "weak_phrases": [] },
-    "rhythm":     { "score": 0, "feedback": "", "pause_suggestions": [] },
-    "emotion_arc":{ "score": 0, "timeline": [], "feedback": "" },
-    "persuasion": {
-      "ethos":  { "score": 0, "feedback": "" },
-      "pathos": { "score": 0, "feedback": "", "source_quote": "" },
-      "logos":  { "score": 0, "feedback": "" }
-    },
-    "top_issues": [
-      { "rank": 1, "quote": "", "issue": "", "reason": "" },
-      { "rank": 2, "quote": "", "issue": "", "reason": "" },
-      { "rank": 3, "quote": "", "issue": "", "reason": "" }
-    ],
+    "structure": {"score": 0, "feedback": ""},
+    "vocabulary": {"score": 0, "feedback": ""},
+    "rhythm": {"score": 0, "feedback": ""},
+    "emotion_arc": {"score": 0, "feedback": ""},
+    "persuasion": {"ethos": {"score": 0}, "pathos": {"score": 0}, "logos": {"score": 0}},
+    "top_issues": [{"rank": 1, "quote": "", "issue": "", "reason": ""}, {"rank": 2, ...}, {"rank": 3, ...}],
     "overall_score": 0
-  },
-  "voice_profile": {
-    "tone": "",
-    "pace": 0,
-    "pitch": "",
-    "pause_intensity": "",
-    "emotion_curve": "",
-    "voice_model_tag": ""
   }
 }
-```
+
+規則：評分附說明；短稿(<30字)標記 transcript_too_short；用繁體中文。
 """
 
 # ---------------------------------------------------------------------------
@@ -81,21 +53,15 @@ ANALYSIS_PROMPT = """
 # ---------------------------------------------------------------------------
 
 REWRITE_SYSTEM = """
-你是一位風格改寫專家。你的唯一任務是：將輸入的句子清單，逐句改寫成目標演說家的風格。
+你是改寫專家。根據分析結果改進內容，再用目標風格表達。
 
-## 鐵律
-- 每一句都必須改寫，沒有例外
-- rewritten 不得與 original 相同或高度相似
-- 只改語言風格與句型結構，不改核心意思
-- 不得合併句子或跳過句子，輸入幾句就輸出幾句
+鐵律：
+1. 逐句改寫，改進內容品質（詞彙、節奏、說服力、情感）
+2. 用目標風格重新表達
+3. 改寫結果不同於原句
+4. 輸入N句，輸出N句
 
-## 輸出格式（JSON 陣列）
-```json
-[
-  {"original": "原句", "rewritten": "改寫後的句子"},
-  {"original": "原句", "rewritten": "改寫後的句子"}
-]
-```
+JSON: [{"original": "原句", "rewritten": "改寫"}]
 """
 
 REWRITE_EXAMPLES = {
@@ -157,45 +123,119 @@ def _split_sentences(text: str) -> list[str]:
     parts = re.split(r'(?<=[。？！\.\?!])\s*|\n+', text.strip())
     return [s.strip() for s in parts if s.strip()]
 
-
-def _make_model(api_key: str) -> "genai.GenerativeModel":
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        generation_config={"response_mime_type": "application/json"},
-    )
-
-
 # ---------------------------------------------------------------------------
 # Call 1 — Analysis
 # ---------------------------------------------------------------------------
 
-def _call_analysis(model, transcript: str) -> dict:
+def _call_analysis(client: AzureOpenAI, transcript: str) -> dict:
     prompt = ANALYSIS_PROMPT + f"\n\n---\n## 演說稿\n{transcript}"
-    response = model.generate_content(prompt)
-    return json.loads(response.text)
-
+    
+    response = client.chat.completions.create(
+        model=os.environ.get("AZURE_OPENAI_DEPLOYMENT"),
+        messages=[
+            {"role": "system", "content": "你是一位專業演說分析師。以 JSON 格式輸出分析結果。"},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
+        response_format={"type": "json_object"},
+    )
+    
+    return json.loads(response.choices[0].message.content)
 
 # ---------------------------------------------------------------------------
-# Call 2 — Rewriting
+# Call 2 — Rewriting (with analysis guidance)
 # ---------------------------------------------------------------------------
 
-def _call_rewrite(model, transcript: str, speaker: str) -> dict:
+def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_result: dict) -> dict:
+    """改寫逐字稿，根據分析結果進行有針對性的修改。"""
     style = SPEAKER_STYLES.get(speaker, "")
     examples = REWRITE_EXAMPLES.get(speaker, "")
 
     sentences = _split_sentences(transcript)
     numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
 
+    # 提取分析結果中的關鍵要點
+    analysis = analysis_result.get('analysis', {})
+    vocab_feedback = analysis.get('vocabulary', {}).get('feedback', '')
+    rhythm_feedback = analysis.get('rhythm', {}).get('feedback', '')
+    emotion_feedback = analysis.get('emotion_arc', {}).get('feedback', '')
+    persuasion = analysis.get('persuasion', {})
+    ethos_feedback = persuasion.get('ethos', {}).get('feedback', '')
+    pathos_feedback = persuasion.get('pathos', {}).get('feedback', '')
+    logos_feedback = persuasion.get('logos', {}).get('feedback', '')
+    top_issues = analysis.get('top_issues', [])
+
+    # 組建分析指導部分
+    improvement_guidance = """## 根據分析結果需要改進的地方\n"""
+    
+    if vocab_feedback:
+        improvement_guidance += f"\n【詞彙與語言】\n{vocab_feedback}\n"
+    
+    if rhythm_feedback:
+        improvement_guidance += f"\n【節奏與句型】\n{rhythm_feedback}\n"
+    
+    if emotion_feedback:
+        improvement_guidance += f"\n【情感弧線】\n{emotion_feedback}\n"
+    
+    persuasion_guidance = []
+    if ethos_feedback:
+        persuasion_guidance.append(f"建立可信度：{ethos_feedback}")
+    if pathos_feedback:
+        persuasion_guidance.append(f"情感共鳴：{pathos_feedback}")
+    if logos_feedback:
+        persuasion_guidance.append(f"邏輯支撐：{logos_feedback}")
+    
+    if persuasion_guidance:
+        improvement_guidance += f"\n【說服力（Ethos/Pathos/Logos）】\n" + "\n".join(persuasion_guidance) + "\n"
+    
+    if top_issues:
+        improvement_guidance += "\n【優先修改的問題】\n"
+        for issue in top_issues[:3]:
+            issue_text = f"\n- {issue.get('issue', '問題')}：{issue.get('reason', '')}\n  原句：\"{issue.get('quote', '')}\""
+            improvement_guidance += issue_text
+
     prompt = (
         REWRITE_SYSTEM
-        + f"\n\n---\n## 目標演說家風格\n{style}\n"
+        + f"\n\n---\n## 目標演說家風格參考\n{style}\n"
         + f"\n{examples}\n"
-        + f"\n---\n## 現在請改寫以下 {len(sentences)} 句，每句都必須改寫：\n\n{numbered}\n"
+        + f"\n---\n{improvement_guidance}\n"
+        + f"\n---\n## 改寫要求（重要）\n"
+        + f"你現在將根據上述分析結果改進以下 {len(sentences)} 句話。\n\n"
+        + f"改寫的步驟：\n"
+        + f"第一步：閱讀每一句，對照「根據分析結果需要改進的地方」中的具體問題\n"
+        + f"第二步：改進該句以解決指出的問題（詞彙、節奏、說服力、情感等）\n"
+        + f"第三步：用上述「目標演說家風格」重新表達改進後的句子\n"
+        + f"第四步：確保改寫後的句子與原句不同，且解決了分析指出的問題\n\n"
+        + f"特別提醒：\n"
+        + f"- 不要只改風格，還要改內容以解決分析指出的弱點\n"
+        + f"- 可以改變句子結構、添加例子或細節，只要不改變核心訊息\n"
+        + f"- 每句都必須改寫，不能保留原句\n"
+        + f"- 目標是產出既改進了內容，又有目標風格的新版本\n\n"
+        + f"現在請改寫以下 {len(sentences)} 句：\n\n{numbered}\n"
     )
 
-    response = model.generate_content(prompt)
-    sentences_result = json.loads(response.text)
+    response = client.chat.completions.create(
+        model=os.environ.get("AZURE_OPENAI_DEPLOYMENT"),
+        messages=[
+            {"role": "system", "content": "你是一位風格改寫專家。以 JSON 陣列格式輸出改寫結果。"},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
+        response_format={"type": "json_object"},
+    )
+    
+    sentences_result = json.loads(response.choices[0].message.content)
+    
+    # 處理回應，如果是 nested JSON 則提取陣列
+    if isinstance(sentences_result, dict) and "rewritten" in sentences_result:
+        # 可能返回 {rewritten: [...]} 格式
+        sentences_result = sentences_result.get("rewritten", [])
+    if not isinstance(sentences_result, list):
+        # 如果還不是列表，嘗試提取 data 字段
+        if isinstance(sentences_result, dict) and "data" in sentences_result:
+            sentences_result = sentences_result["data"]
+        else:
+            sentences_result = []
 
     content = "\n".join(
         s.get("rewritten", s.get("original", ""))
@@ -216,22 +256,170 @@ def _call_rewrite(model, transcript: str, speaker: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Call 2 — Rewriting (with analysis guidance)
+# ---------------------------------------------------------------------------
+
+def _call_rewrite(client: AzureOpenAI, transcript: str, speaker: str, analysis_result: dict) -> dict:
+    """改寫逐字稿，根據分析結果進行有針對性的修改。"""
+    style = SPEAKER_STYLES.get(speaker, "")
+    examples = REWRITE_EXAMPLES.get(speaker, "")
+
+    sentences = _split_sentences(transcript)
+    numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
+
+    # 提取分析結果中的關鍵要點
+    analysis = analysis_result.get('analysis', {})
+    vocab_feedback = analysis.get('vocabulary', {}).get('feedback', '')
+    rhythm_feedback = analysis.get('rhythm', {}).get('feedback', '')
+    emotion_feedback = analysis.get('emotion_arc', {}).get('feedback', '')
+    persuasion = analysis.get('persuasion', {})
+    ethos_feedback = persuasion.get('ethos', {}).get('feedback', '')
+    pathos_feedback = persuasion.get('pathos', {}).get('feedback', '')
+    logos_feedback = persuasion.get('logos', {}).get('feedback', '')
+    top_issues = analysis.get('top_issues', [])
+
+    # 組建分析指導部分
+    improvement_guidance = """## 根據分析結果需要改進的地方\n"""
+    
+    if vocab_feedback:
+        improvement_guidance += f"\n【詞彙與語言】\n{vocab_feedback}\n"
+    
+    if rhythm_feedback:
+        improvement_guidance += f"\n【節奏與句型】\n{rhythm_feedback}\n"
+    
+    if emotion_feedback:
+        improvement_guidance += f"\n【情感弧線】\n{emotion_feedback}\n"
+    
+    persuasion_guidance = []
+    if ethos_feedback:
+        persuasion_guidance.append(f"建立可信度：{ethos_feedback}")
+    if pathos_feedback:
+        persuasion_guidance.append(f"情感共鳴：{pathos_feedback}")
+    if logos_feedback:
+        persuasion_guidance.append(f"邏輯支撐：{logos_feedback}")
+    
+    if persuasion_guidance:
+        improvement_guidance += f"\n【說服力（Ethos/Pathos/Logos）】\n" + "\n".join(persuasion_guidance) + "\n"
+    
+    if top_issues:
+        improvement_guidance += "\n【優先修改的問題】\n"
+        for issue in top_issues[:3]:
+            issue_text = f"\n- {issue.get('issue', '問題')}：{issue.get('reason', '')}\n  原句：\"{issue.get('quote', '')}\""
+            improvement_guidance += issue_text
+
+    prompt = (
+        REWRITE_SYSTEM
+        + f"\n\n---\n## 目標演說家風格參考\n{style}\n"
+        + f"\n{examples}\n"
+        + f"\n---\n{improvement_guidance}\n"
+        + f"\n---\n## 改寫要求（重要）\n"
+        + f"你現在將根據上述分析結果改進以下 {len(sentences)} 句話。\n\n"
+        + f"改寫的步驟：\n"
+        + f"第一步：閱讀每一句，對照「根據分析結果需要改進的地方」中的具體問題\n"
+        + f"第二步：改進該句以解決指出的問題（詞彙、節奏、說服力、情感等）\n"
+        + f"第三步：用上述「目標演說家風格」重新表達改進後的句子\n"
+        + f"第四步：確保改寫後的句子與原句不同，且解決了分析指出的問題\n\n"
+        + f"特別提醒：\n"
+        + f"- 不要只改風格，還要改內容以解決分析指出的弱點\n"
+        + f"- 可以改變句子結構、添加例子或細節，只要不改變核心訊息\n"
+        + f"- 每句都必須改寫，不能保留原句\n"
+        + f"- 目標是產出既改進了內容，又有目標風格的新版本\n\n"
+        + f"現在請改寫以下 {len(sentences)} 句：\n\n{numbered}\n"
+    )
+
+    response = client.chat.completions.create(
+        model=os.environ.get("AZURE_OPENAI_DEPLOYMENT"),
+        messages=[
+            {"role": "system", "content": "你是一位風格改寫專家。以 JSON 陣列格式輸出改寫結果。"},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
+        response_format={"type": "json_object"},
+    )
+    
+    response_data = json.loads(response.choices[0].message.content)
+    
+    # Handle different response formats from Azure OpenAI
+    sentences_result = []
+    
+    if isinstance(response_data, dict):
+        # Check for common wrapper keys
+        if "alternatives" in response_data:
+            sentences_result = response_data["alternatives"]
+        elif "rewritten" in response_data:
+            sentences_result = response_data["rewritten"]
+        elif "data" in response_data:
+            sentences_result = response_data["data"]
+        elif "sentences" in response_data:
+            sentences_result = response_data["sentences"]
+        elif len(response_data) > 0:
+            # If it's a dict of numbered items, convert to list
+            for key in sorted(response_data.keys()):
+                if key != "error":  # Skip error messages
+                    item = response_data[key]
+                    if isinstance(item, dict):
+                        sentences_result.append(item)
+                    elif isinstance(item, list):
+                        sentences_result.extend(item)
+                    else:
+                        sentences_result.append({"original": key, "rewritten": str(item)})
+    elif isinstance(response_data, list):
+        sentences_result = response_data
+
+    # Extract content from the result
+    content_parts = []
+    for item in sentences_result:
+        if isinstance(item, dict):
+            rewritten = item.get("rewritten", item.get("revised", item.get("original", "")))
+            if rewritten:
+                content_parts.append(rewritten)
+        elif isinstance(item, str):
+            if item:
+                content_parts.append(item)
+    
+    content = "\n".join(content_parts)
+    
+    change_log = []
+    for s in sentences_result:
+        if isinstance(s, dict):
+            change_log.append({
+                "original": s.get("original", ""),
+                "revised": s.get("rewritten", s.get("revised", "")),
+                "reason": s.get("reason", "")
+            })
+
+    return {
+        "speaker_style": speaker,
+        "content": content,
+        "sentences": sentences_result,
+        "style_patterns_used": [],
+        "change_log": change_log,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 def analyze_transcript(transcript: str, speaker: str = "trump") -> dict:
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY not set")
+    api_key = os.environ.get("AZURE_OPENAI_KEY")
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+    
+    if not all([api_key, endpoint, deployment]):
+        raise EnvironmentError(
+            "Missing Azure OpenAI configuration. "
+            "Please set AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_DEPLOYMENT"
+        )
 
-    model = _make_model(api_key)
+    client = _make_client()
 
-    analysis_result = _call_analysis(model, transcript)
+    analysis_result = _call_analysis(client, transcript)
 
     if analysis_result.get("transcript_too_short"):
         return analysis_result
 
-    rewrite_result = _call_rewrite(model, transcript, speaker)
+    rewrite_result = _call_rewrite(client, transcript, speaker, analysis_result)
 
     analysis_result["rewritten_transcript"] = rewrite_result
     return analysis_result

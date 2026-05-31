@@ -81,6 +81,8 @@
 .panel-card {
   padding: 36px 40px;
   margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .panel-header { margin-bottom: 28px; }
@@ -692,6 +694,8 @@
   background: var(--bg-2);
   overflow: hidden;
   min-height: 200px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .draft-content {
@@ -701,6 +705,11 @@
   color: var(--text-1);
   min-height: 200px;
   white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  display: block;
+  width: 100%;
 }
 
 .draft-placeholder { color: var(--text-3); font-style: italic; }
