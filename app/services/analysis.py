@@ -4,9 +4,8 @@
 提供的服務：
 1. 冗詞分析 - 計算填充詞和連接詞
 2. 詞彙豐富度 - 類型令牌比 (TTR) 分析
-3. 情感分析 - 演講中的情緒軌跡
-4. 關鍵詞 - 核心主題和強調模式
-5. 數據vs情感 - 演講者類型分類
+3. 關鍵詞 - 核心主題和強調模式
+4. 數據vs情感 - 演講者類型分類
 """
 
 import re
@@ -255,7 +254,7 @@ class TranscriptAnalyzer:
         else:
             return '話題較為發散，涵蓋多個不同主題和議題'
     
-    # ========== 服務 5: 數據vs情感分類 ==========
+    # ========== 服務 4: 數據vs情感分類 ==========
     def detect_data_vs_emotion(self) -> dict:
         """
         將演講者分類為數據導向或情感導向。
@@ -328,7 +327,7 @@ class TranscriptAnalyzer:
         生成結合所有服務的綜合分析報告。
         
         返回:
-            包含所有 5 項分析服務結果的字典
+            包含所有4項分析服務結果的字典
         """
         return {
             'redundancy_analysis': self.analyze_filler_words(),

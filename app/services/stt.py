@@ -29,7 +29,8 @@ class AzureSTTService:
 
     def transcribe_from_file(self, file_path: str) -> dict:
         """
-        Transcribe audio file to text.
+        Transcribe audio file to text using continuous recognition.
+        Supports long audio files (tested with files 1+ minutes long).
         
         Args:
             file_path: Path to audio file (should be WAV format for best compatibility)
@@ -68,21 +69,53 @@ class AzureSTTService:
                 audio_config=audio_config
             )
             
-            # Perform recognition
-            result = recognizer.recognize_once()
+            # Storage for results
+            all_results = []
+            recognition_done = False
             
-            if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                transcript = result.text
-                current_app.logger.info(
-                    f'Transcribed: {len(transcript)} chars'
-                )
-                return {
-                    'success': True,
-                    'transcript': transcript,
-                }
+            def on_recognized(evt):
+                """Handle recognized speech events."""
+                if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                    if evt.result.text:
+                        all_results.append(evt.result.text)
+                        current_app.logger.debug(f'Recognized: {evt.result.text}')
             
-            elif result.reason == speechsdk.ResultReason.NoMatch:
-                current_app.logger.warning('No speech detected')
+            def on_session_stopped(evt):
+                """Handle session stopped event."""
+                nonlocal recognition_done
+                recognition_done = True
+                current_app.logger.debug('Recognition session stopped')
+            
+            def on_canceled(evt):
+                """Handle cancellation event."""
+                if evt.result.reason == speechsdk.ResultReason.Canceled:
+                    cancellation = evt.result.cancellation_details
+                    current_app.logger.error(
+                        f'Cancellation: {cancellation.reason} - {cancellation.error_details}'
+                    )
+            
+            # Connect event handlers
+            recognizer.recognized.connect(on_recognized)
+            recognizer.session_stopped.connect(on_session_stopped)
+            recognizer.canceled.connect(on_canceled)
+            
+            # Start continuous recognition
+            current_app.logger.info('Starting continuous recognition...')
+            recognizer.start_continuous_recognition()
+            
+            # Wait for recognition to complete (with timeout)
+            import time
+            max_wait = 300  # 5 minutes timeout for very long audio
+            elapsed = 0
+            while not recognition_done and elapsed < max_wait:
+                time.sleep(0.1)
+                elapsed += 0.1
+            
+            # Stop recognition
+            recognizer.stop_continuous_recognition()
+            
+            if not all_results:
+                current_app.logger.warning('No speech detected in audio')
                 return {
                     'success': False,
                     'error': (
@@ -94,18 +127,16 @@ class AzureSTTService:
                     'reason': 'no_speech_detected',
                 }
             
-            elif result.reason == speechsdk.ResultReason.Canceled:
-                cancellation = result.cancellation_details
-                error_msg = f'{cancellation.reason}'
-                if cancellation.error_details:
-                    error_msg += f': {cancellation.error_details}'
-                
-                current_app.logger.error(f'Transcription canceled - {error_msg}')
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'reason': 'recognition_canceled',
-                }
+            # Combine all recognized text
+            transcript = ' '.join(all_results)
+            current_app.logger.info(
+                f'Transcribed successfully: {len(transcript)} chars from {len(all_results)} segments'
+            )
+            
+            return {
+                'success': True,
+                'transcript': transcript,
+            }
         
         except FileNotFoundError as e:
             current_app.logger.error(f'File not found: {str(e)}')
